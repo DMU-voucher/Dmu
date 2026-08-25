@@ -24,6 +24,7 @@ import io
 import json
 import os
 import secrets
+import sqlite3
 import sys
 from datetime import date, datetime, timedelta
 from functools import wraps
@@ -407,12 +408,44 @@ def setup():
                 "redemptions": conn.execute(
                     "SELECT COUNT(*) FROM redemptions WHERE reversed_at IS NULL"
                 ).fetchone()[0],
+                # The pool tells you whether this is the real database or an
+                # empty one made on the spot. Pointing at the wrong file looks
+                # exactly like a batch that was never imported.
+                "pool": conn.execute("SELECT COUNT(*) FROM reference_pool").fetchone()[0],
             }
         finally:
             conn.close()
     except Exception as exc:
         db_ok = False
         db_note = str(exc)
+
+    db_path = Path(settings.DB_PATH)
+    db_size_mb = (db_path.stat().st_size / 1048576) if db_path.is_file() else 0.0
+
+    # A pool-less database sitting next to one that has a pool is the classic
+    # wrong-filename mistake: the batch went into vouchers.db while DMU_DB_PATH
+    # still says redemptions.db. Both files have the same schema, so neither one
+    # complains. Name the other file here rather than leaving somebody to go
+    # looking for it in a console.
+    sibling = None
+    if db_ok and not counts.get("pool") and db_path.parent.is_dir():
+        for other in sorted(db_path.parent.glob("*.db")):
+            if other.name == db_path.name:
+                continue
+            try:
+                # Read-only, by URI: a plain connect would create an empty file
+                # for anything that is not there, which is the opposite of help.
+                conn = sqlite3.connect(f"file:{other}?mode=ro", uri=True)
+                try:
+                    found = conn.execute(
+                        "SELECT COUNT(*) FROM reference_pool").fetchone()[0]
+                finally:
+                    conn.close()
+            except Exception:
+                continue
+            if found:
+                sibling = {"name": other.name, "path": other, "pool": found}
+                break
 
     todo = []
     for row in rows:
@@ -429,14 +462,33 @@ def setup():
         todo.append("Turn on Force HTTPS on the Web tab, then press Reload. "
                     "Without it passwords cross the network in clear text.")
     if db_ok and not counts.get("vouchers"):
-        todo.append("No batch imported yet, so no voucher will be recognised. "
-                    "Import one in the admin area.")
+        if counts.get("pool"):
+            todo.append("No vouchers issued from this pool yet, so no number "
+                        "will be recognised.")
+        elif signed_in and sibling:
+            todo.append(
+                f"The pool is in the wrong file. This app is reading {db_path}, "
+                f"which is empty, but {sibling['name']} in the same folder holds "
+                f"{sibling['pool']:,} numbers. Set DMU_DB_PATH to "
+                f"{sibling['path']} and press Reload on the Web tab.")
+        elif signed_in:
+            todo.append(
+                "This database has no voucher pool and no vouchers, so it is "
+                "not the one the batch was imported into. Either DMU_DB_PATH "
+                "points at the wrong file, or it was changed and the app has "
+                "not been reloaded since. Right now it is reading "
+                f"{db_path} ({db_size_mb:.1f} MB).")
+        else:
+            todo.append(
+                "This database has no voucher pool and no vouchers. Sign in to "
+                "see which file it is reading.")
 
     return render_template(
         "setup.html", rows=rows, todo=todo, db_ok=db_ok, db_note=db_note,
         counts=counts, secure=request.is_secure,
         dotenv_found=settings.DOTENV_FOUND,
         venues=settings.VENUES, locked_out=locked_out,
+        db_path=db_path, db_size_mb=db_size_mb, sibling=sibling,
         # Operational detail only for somebody who has actually signed in.
         detailed=signed_in,
     )

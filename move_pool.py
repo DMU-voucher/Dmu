@@ -13,7 +13,11 @@ On the machine that has the pool:
 
 That writes pool-transfer.jsonl.gz. Upload it, then on the new machine:
 
-    python3.10 move_pool.py import pool-transfer.jsonl.gz --into /path/to/vouchers.db
+    python3.10 move_pool.py import pool-transfer.jsonl.gz --into ~/dmu-voucher-data/vouchers.db
+
+Whatever path is used there has to be the one DMU_DB_PATH points at on the
+server. The site creates an empty database at whatever path it is given, so a
+mismatch produces no error, just a site where no voucher is ever recognised.
 
 The import refuses to touch a database that already has a pool, for the same
 reason the generator refuses to redraw one.

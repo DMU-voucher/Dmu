@@ -150,7 +150,7 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
    | `DMU_VENDOR_PASSWORD` | What the vendors are told. Change it when staff leave. |
    | `DMU_ADMIN_PASSWORD` | For DMU Venues. Not the same as the vendor one. |
    | `DMU_SECRET_KEY` | Any long random string. `python -c "import secrets; print(secrets.token_hex(32))"` |
-   | `DMU_DB_PATH` | `/home/YOURNAME/dmu-voucher-data/redemptions.db` |
+   | `DMU_DB_PATH` | `/home/YOURNAME/dmu-voucher-data/vouchers.db` |
 
    **Set `DMU_DB_PATH` to somewhere outside the cloned folder.** If the database
    sits inside the repository, a `git pull` can take every redemption with it.
@@ -159,9 +159,22 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
    ```bash
    pip3.10 install --user -r ~/dmu-vouchers/redeem/requirements.txt
    ```
-6. **Reload** on the Web tab, then open the site. If anything is missing it
-   tells you which variable, rather than failing quietly.
-7. **Put the address into `config.json`** on the office computer, as
+6. **Carry the pool over.** The pool is drawn once and cannot be regenerated,
+   so it has to be moved rather than remade. On the office computer, in the
+   generator folder, run `python move_pool.py export`, upload the
+   `pool-transfer.jsonl.gz` it writes, then in a Bash console:
+   ```bash
+   mkdir -p ~/dmu-voucher-data
+   python3.10 ~/dmu-vouchers/move_pool.py import ~/pool-transfer.jsonl.gz --into ~/dmu-voucher-data/vouchers.db
+   ```
+   **The filename has to match `DMU_DB_PATH` exactly.** Both files would have
+   the same tables, so pointing the site at the wrong one gives no error at
+   all: every voucher simply comes back unrecognised. `/setup` names the file
+   it is reading, and says so if the pool is in a different one.
+7. **Reload** on the Web tab, then open `/setup`. If anything is missing it
+   tells you which variable, rather than failing quietly. Nothing you change
+   on the Web tab or in `.env` takes effect until this Reload.
+8. **Put the address into `config.json`** on the office computer, as
    `redeem_url`. Then make the vouchers.
 
 Until step 7 is done, vouchers print with an empty QR box. That is deliberate:
