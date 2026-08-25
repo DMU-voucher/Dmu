@@ -44,3 +44,6 @@ Reply to Jay.txt
 /poster.jpg
 /.nojekyll
 /.gitattributes
+
+# Local launch config for the preview tooling. Not part of the app.
+/.claude/
