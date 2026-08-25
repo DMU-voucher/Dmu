@@ -14,7 +14,12 @@
     <p class="tiny">
       On PythonAnywhere these go in the web app's Environment variables, or in a
       <span class="mono">.env</span> file next to the app. There is an
-      <span class="mono">.env.example</span> showing the format.
+      <span class="mono">.env.example</span> showing the format. Whichever you
+      use, press the green <strong>Reload</strong> button afterwards.
     </p>
+
+    <a class="btn primary block" href="{{ url_for('setup') }}">
+      Tell me exactly what is wrong
+    </a>
   </div>
 {% endblock %}

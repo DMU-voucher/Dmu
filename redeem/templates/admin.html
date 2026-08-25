@@ -46,6 +46,15 @@
   {% endif %}
 
   <div class="card">
+    <h2>Setup check</h2>
+    <p class="hint">
+      Whether this site is configured properly, what is missing, and what to do
+      about it.
+    </p>
+    <a class="btn secondary block" href="{{ url_for('setup') }}">Run the setup check</a>
+  </div>
+
+  <div class="card">
     <h2>Find a voucher</h2>
     <p class="hint">To check its history, undo a redemption, or cancel it.</p>
     <form method="get" action="{{ url_for('admin_voucher') }}">

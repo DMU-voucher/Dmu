@@ -21,24 +21,63 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 
+# Where each setting came from, so the setup page can say so out loud. Getting
+# this wrong costs hours: a value set in two places looks exactly like a typo.
+FROM_FILE: set[str] = set()
+FROM_ENVIRONMENT: set[str] = set()
+SHADOWED: list[str] = []
+DOTENV_FOUND = False
+
+
 def _load_dotenv() -> None:
     """Read a .env file next to this one, if there is one.
 
-    Deliberately not a dependency. Four lines of parsing beats asking whoever
+    Deliberately not a dependency. A few lines of parsing beats asking whoever
     sets this up on PythonAnywhere to pip install something first.
+
+    A real environment variable always wins over the file, because that is what
+    PythonAnywhere's Environment variables section sets and it would be worse to
+    have a checked-out file quietly override the hosting. But a value that lost
+    that fight is recorded in SHADOWED, because silently ignoring half of what
+    somebody typed is how an afternoon disappears.
     """
+    global DOTENV_FOUND
     path = HERE / ".env"
     if not path.is_file():
         return
+    DOTENV_FOUND = True
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key in os.environ:
+            if os.environ[key] != value:
+                SHADOWED.append(key)
+            FROM_ENVIRONMENT.add(key)
+        else:
+            os.environ[key] = value
+            FROM_FILE.add(key)
 
 
+_before = set(os.environ)
 _load_dotenv()
+for _name in _before:
+    if _name.startswith("DMU_"):
+        FROM_ENVIRONMENT.add(_name)
+
+
+def source(name: str) -> str:
+    """Plain English for where a setting is coming from."""
+    if name in SHADOWED:
+        return "the Web tab (the .env file is being ignored)"
+    if name in FROM_ENVIRONMENT:
+        return "the Web tab"
+    if name in FROM_FILE:
+        return "the .env file"
+    return "nowhere, it is not set"
 
 DB_PATH = Path(os.environ.get("DMU_DB_PATH") or (HERE / "data" / "redemptions.db"))
 

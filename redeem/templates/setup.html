@@ -1,0 +1,109 @@
+{% extends "_base.html" %}
+{% block heading %}Setup check{% endblock %}
+{% block content %}
+
+  {% if todo %}
+    <div class="err">
+      <strong>{{ todo|length }} thing{{ '' if todo|length == 1 else 's' }} to fix.</strong>
+    </div>
+    <div class="card">
+      <h2>Do these, in order</h2>
+      <ol class="steps">
+        {% for item in todo %}<li>{{ item }}</li>{% endfor %}
+      </ol>
+      <p class="sub">
+        Every change on the Web tab, and every edit to the .env file, needs the
+        green <strong>Reload</strong> button pressed afterwards. Nothing takes
+        effect until you do. A change without a reload looks exactly like a
+        wrong password.
+      </p>
+    </div>
+  {% else %}
+    <div class="ok"><strong>Nothing to fix. The site is ready to use.</strong></div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Settings</h2>
+    <p class="hint">
+      Whether each one is set, and which of the two places it is coming from.
+      Values are never shown here.
+    </p>
+    <div class="scroll">
+      <table class="grid">
+        <thead>
+          <tr><th>Setting</th><th>What it does</th><th>State</th><th>Coming from</th></tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td class="mono">{{ r.name }}</td>
+              <td>{{ r.what }}</td>
+              <td>
+                {% if r.set %}Set
+                {% elif r.optional %}Not set, which is fine
+                {% else %}<strong>Missing</strong>{% endif %}
+              </td>
+              <td>
+                {{ r.source }}
+                {% if r.shadowed %}<br><strong>Set in two places.</strong>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="sub">
+      {% if dotenv_found %}
+        There is a .env file next to the app. The Web tab always wins over it.
+      {% else %}
+        There is no .env file. Everything is coming from the Web tab.
+      {% endif %}
+    </p>
+  </div>
+
+  {% if detailed %}
+  <div class="card">
+    <h2>The rest of it</h2>
+    <table class="grid">
+      <tbody>
+        <tr>
+          <td>Connection</td>
+          <td>
+            {% if secure %}Secure (https)
+            {% else %}<strong>Not secure.</strong> Turn on Force HTTPS.{% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td>Database</td>
+          <td>
+            {% if db_ok %}
+              Working. {{ counts.vouchers }} voucher{{ '' if counts.vouchers == 1 else 's' }}
+              imported, {{ counts.redemptions }} redeemed.
+            {% else %}
+              <strong>Cannot be written.</strong>
+              <span class="mono">{{ db_note }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td>Venues</td>
+          <td>{{ venues|join(', ') }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="sub">
+      The venue names must match what is printed on the vouchers. Change them
+      with DMU_VENUES, separated by a vertical bar.
+    </p>
+  </div>
+  {% endif %}
+
+{% endblock %}
+{% block foot %}
+  {% if locked_out %}
+    De Montfort University. This page is readable by anyone until the passwords
+    are set, so that nobody can be locked out with no way to see why.
+  {% else %}
+    De Montfort University. Admin only.
+  {% endif %}
+{% endblock %}

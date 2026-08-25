@@ -22,6 +22,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import secrets
 import sys
 from datetime import date, datetime, timedelta
@@ -353,6 +354,92 @@ def redeem():
                                event=voucher["event_name"])
     finally:
         conn.close()
+
+
+@app.get("/setup")
+def setup():
+    """Says what is wrong and what to do about it, in words.
+
+    Readable by anyone while the site is not yet configured, because that is
+    exactly when somebody is locked out and needs to know why. Once the
+    passwords are set it needs the admin password like everything else.
+
+    It never shows a value, only whether one is set and where it came from.
+    Knowing that DMU_ADMIN_PASSWORD is being read from the Web tab rather than
+    the .env file is the difference between a two minute fix and an afternoon.
+    """
+    missing = settings.configured()
+
+    # Readable without a password in the two states that lock somebody out:
+    # nothing is set, or something is set twice and they cannot tell which value
+    # is live. The second is the nastier one, because the sign-in page looks
+    # perfectly normal and simply rejects what you type.
+    locked_out = bool(missing) or bool(settings.SHADOWED)
+    signed_in = admin_signed_in()
+    if not locked_out and not signed_in:
+        return redirect(url_for("admin_signin", next=url_for("setup")))
+
+    rows = []
+    for name, what in (
+        ("DMU_VENDOR_PASSWORD", "What vendors type at the venue"),
+        ("DMU_ADMIN_PASSWORD", "What DMU Venues types here"),
+        ("DMU_SECRET_KEY", "Signs the sign-in cookie"),
+        ("DMU_DB_PATH", "Where redemptions are stored"),
+        ("DMU_SITE_PASSWORD", "Optional. Hides the whole site while testing"),
+    ):
+        rows.append({
+            "name": name,
+            "what": what,
+            "set": bool(os.environ.get(name)),
+            "source": settings.source(name),
+            "shadowed": name in settings.SHADOWED,
+            "optional": name in ("DMU_SITE_PASSWORD", "DMU_DB_PATH"),
+        })
+
+    # Can the database actually be written? A path that looks right but is not
+    # writable fails at the worst moment, which is a vendor at a till.
+    db_ok, db_note, counts = True, "", {}
+    try:
+        conn = db()
+        try:
+            counts = {
+                "vouchers": conn.execute("SELECT COUNT(*) FROM vouchers").fetchone()[0],
+                "redemptions": conn.execute(
+                    "SELECT COUNT(*) FROM redemptions WHERE reversed_at IS NULL"
+                ).fetchone()[0],
+            }
+        finally:
+            conn.close()
+    except Exception as exc:
+        db_ok = False
+        db_note = str(exc)
+
+    todo = []
+    for row in rows:
+        if not row["set"] and not row["optional"]:
+            todo.append(f"Set {row['name']} in the Web tab, then press Reload.")
+        if row["shadowed"]:
+            todo.append(
+                f"{row['name']} is set in two places and the .env file is being "
+                f"ignored. Use the Web tab value, or delete that row from the "
+                f"Web tab so the file wins.")
+    if not db_ok:
+        todo.append("The database cannot be written. See the note below.")
+    if not request.is_secure:
+        todo.append("Turn on Force HTTPS on the Web tab, then press Reload. "
+                    "Without it passwords cross the network in clear text.")
+    if db_ok and not counts.get("vouchers"):
+        todo.append("No batch imported yet, so no voucher will be recognised. "
+                    "Import one in the admin area.")
+
+    return render_template(
+        "setup.html", rows=rows, todo=todo, db_ok=db_ok, db_note=db_note,
+        counts=counts, secure=request.is_secure,
+        dotenv_found=settings.DOTENV_FOUND,
+        venues=settings.VENUES, locked_out=locked_out,
+        # Operational detail only for somebody who has actually signed in.
+        detailed=signed_in,
+    )
 
 
 # --------------------------------------------------------------------------
