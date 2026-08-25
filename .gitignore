@@ -50,3 +50,6 @@ Reply to Jay.txt
 
 # Output of check_pdf_engine.py. Test renders, not vouchers.
 /engine-check/
+
+# Pool transfers. Real voucher numbers, and big. Move them by hand.
+pool-transfer*.jsonl.gz
