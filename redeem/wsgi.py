@@ -3,7 +3,7 @@
 In the PythonAnywhere Web tab, set the WSGI configuration file to point here,
 or paste these two lines into the one it made for you:
 
-    import sys; sys.path.insert(0, "/home/YOURNAME/dmu-catering/redeem")
+    import sys; sys.path.insert(0, "/home/YOURNAME/dmu-vouchers/redeem")
     from wsgi import application
 
 Set the passwords under Environment variables on the same page rather than in a

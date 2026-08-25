@@ -131,7 +131,7 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
 
 1. **Get the code there.** In a Bash console:
    ```bash
-   git clone https://github.com/insiderpro123/dmu-catering.git
+   git clone https://github.com/insiderpro123/dmu-vouchers.git
    ```
 2. **Make a web app.** Web tab, Add a new web app, Manual configuration,
    Python 3.10 or newer.
@@ -139,7 +139,7 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
    with:
    ```python
    import sys
-   sys.path.insert(0, "/home/YOURNAME/dmu-catering/redeem")
+   sys.path.insert(0, "/home/YOURNAME/dmu-vouchers/redeem")
    from wsgi import application
    ```
 4. **Set the passwords.** Web tab, Environment variables. Do not put these in a
@@ -157,7 +157,7 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
 
 5. **Install Flask**, in a Bash console:
    ```bash
-   pip3.10 install --user -r ~/dmu-catering/redeem/requirements.txt
+   pip3.10 install --user -r ~/dmu-vouchers/redeem/requirements.txt
    ```
 6. **Reload** on the Web tab, then open the site. If anything is missing it
    tells you which variable, rather than failing quietly.
@@ -166,6 +166,32 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
 
 Until step 7 is done, vouchers print with an empty QR box. That is deliberate:
 better a blank box than a QR code pointing nowhere, printed on 500 vouchers.
+
+### The free account expires. Diarise it
+
+A free PythonAnywhere web app **expires after one month** and stops serving
+until somebody logs in and presses **Run until 3 months from today** on the Web
+tab. PythonAnywhere shortened this from three months to one in January 2026.
+
+This is the single biggest operational risk in the whole scheme. Vouchers are
+printed paper with a fixed QR code on them. If the web app lapses while
+vouchers are in circulation, every vendor who scans one gets nothing, and there
+is no way to tell the students. The vouchers do not stop being valid, so DMU
+still owes the money, but nobody can record a redemption.
+
+So either:
+
+* put a recurring reminder in a shared calendar, not one person's, and press
+  the button every month whether or not the email arrives; or
+* pay for the Developer tier, where web apps do not expire. At roughly $5 a
+  month, this costs less than one voucher and removes the risk entirely.
+
+The paid tier also allows a custom domain, so the QR could point at something
+like `dmu.insiderpro.co.uk` instead of a `pythonanywhere.com` address.
+
+Two other free-tier limits, neither of which affects this site: MySQL and
+scheduled tasks are now Developer-tier only. The redemption site uses neither,
+just SQLite on the filesystem.
 
 ### Running it locally to try it
 
