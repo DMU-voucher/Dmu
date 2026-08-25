@@ -10,6 +10,7 @@ a .env file next to this one, which is gitignored.
     DMU_SECRET_KEY        signs the session cookie
     DMU_DB_PATH           where the database lives, if not the default
     DMU_VENUES            venue names, separated by |
+    DMU_SITE_PASSWORD     optional gate across the whole site
 """
 
 from __future__ import annotations
@@ -48,6 +49,17 @@ SECRET_KEY = os.environ.get("DMU_SECRET_KEY", "")
 VENUES = [v.strip() for v in os.environ.get(
     "DMU_VENUES", "Saints of Mokha|Devorer Street Vendor (outside Monty's)"
 ).split("|") if v.strip()]
+
+# An optional gate across the whole site, in front of even the sign-in page.
+# Leave it unset in normal running: vendors must not need two passwords.
+#
+# Set it while the site is being tested on a public address. Without it the
+# sign-in page is reachable by anyone who finds the URL, which during testing
+# means a DMU-branded login screen sitting open on the internet with test data
+# behind it. With it set, there is nothing to see at all.
+SITE_USER = os.environ.get("DMU_SITE_USER", "dmu")
+SITE_PASSWORD = os.environ.get("DMU_SITE_PASSWORD", "")
+
 
 # A vendor signs in at the start of a shift, not per customer.
 VENDOR_SESSION_HOURS = int(os.environ.get("DMU_VENDOR_SESSION_HOURS", "16"))

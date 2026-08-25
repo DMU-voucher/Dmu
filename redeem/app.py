@@ -55,6 +55,51 @@ app.permanent_session_lifetime = timedelta(hours=settings.VENDOR_SESSION_HOURS)
 def db():
     return store.init(settings.DB_PATH)
 
+@app.before_request
+def site_gate():
+    """One browser password prompt in front of the entire site.
+
+    Only active when DMU_SITE_PASSWORD is set, which is meant for while the
+    site is being tested on a public address. Unset, this does nothing and the
+    vendor sees the normal sign-in page.
+
+    This sits in front of the vendor password rather than replacing it. It
+    hides the site from anyone who stumbles on the URL; the vendor password is
+    still what stops a redemption being recorded.
+    """
+    if not settings.SITE_PASSWORD:
+        return None
+
+    auth = request.authorization
+    supplied_user = (auth.username or "") if auth else ""
+    supplied_pass = (auth.password or "") if auth else ""
+
+    # compare_digest on both, and both always evaluated, so neither the
+    # username nor the password can be narrowed down by timing.
+    user_ok = secrets.compare_digest(supplied_user, settings.SITE_USER)
+    pass_ok = secrets.compare_digest(supplied_pass, settings.SITE_PASSWORD)
+    if user_ok and pass_ok:
+        return None
+
+    return Response(
+        "This site is not open yet.", 401,
+        {"WWW-Authenticate": 'Basic realm="DMU vouchers"',
+         "Cache-Control": "no-store"},
+    )
+
+
+@app.after_request
+def no_indexing(response: Response) -> Response:
+    """Keep the site out of search results.
+
+    A voucher scheme has no reason to be findable, and a stale cached copy of
+    a redemption screen is worse than useless.
+    """
+    response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+    return response
+
+
+
 
 # --------------------------------------------------------------------------
 # Sign in

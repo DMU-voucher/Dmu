@@ -167,6 +167,33 @@ it will run anywhere else that runs Python if DMU IT would rather host it.
 Until step 7 is done, vouchers print with an empty QR box. That is deliberate:
 better a blank box than a QR code pointing nowhere, printed on 500 vouchers.
 
+### Hiding the site while you test it
+
+The site always asks for a password: a vendor cannot look up a voucher without
+the vendor password, and DMU Venues cannot import a batch without the admin
+one. What is visible to anyone who finds the address is the sign-in page
+itself.
+
+While testing on a public address, that is worth closing off. Set one extra
+environment variable:
+
+| Name | Value |
+| --- | --- |
+| `DMU_SITE_USER` | anything, `dmu` if left unset |
+| `DMU_SITE_PASSWORD` | anything you like |
+
+The browser then asks for that pair before it will show any page at all,
+including the sign-in screen and the stylesheet. Nobody who stumbles on the
+address sees so much as the DMU logo.
+
+**Take it off before the vendors use it.** It sits in front of the vendor
+password rather than replacing it, so leaving it on means asking a vendor for
+two passwords at a till with a queue. Delete the variable, reload the web app,
+and the site behaves normally again.
+
+The site also sends `X-Robots-Tag: noindex, nofollow` on every response, gate or
+no gate, so it stays out of search results.
+
 ### The free account expires. Diarise it
 
 A free PythonAnywhere web app **expires after one month** and stops serving
