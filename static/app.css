@@ -1,0 +1,208 @@
+/* The app's own interface. Kept deliberately plain: this gets used a few times a
+   term by whoever is covering the desk, not by anyone who has been trained on it. */
+
+:root {
+  --dmu-red: #a6192e;
+  --dmu-red-dark: #7c1322;
+  --fd-orange: #f07f1a;
+  --ink: #1c1c1e;
+  --ink-soft: #5c5c66;
+  --line: #e2e2e7;
+  --panel: #ffffff;
+  --page: #f4f4f7;
+  --ok: #1c7a4a;
+  --warn: #8a5a00;
+  --warn-bg: #fdf6e6;
+  --err: #a6192e;
+  --err-bg: #fdeced;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Segoe UI", Tahoma, Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 64px; }
+
+header.top {
+  background: #fff;
+  border-bottom: 3px solid var(--dmu-red);
+  padding: 22px 0 20px;
+  margin-bottom: 28px;
+}
+
+header.top .wrap { padding-bottom: 0; display: flex; align-items: center; gap: 16px; }
+
+.fd-tag {
+  background: var(--fd-orange);
+  color: #fff;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 3px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+header.top h1 { font-size: 21px; margin: 0; font-weight: 700; }
+header.top p { margin: 2px 0 0; color: var(--ink-soft); font-size: 14px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 24px 26px;
+  margin-bottom: 22px;
+}
+
+.panel h2 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+
+.panel h2 .step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--dmu-red);
+  color: #fff;
+  font-size: 14px;
+  margin-right: 10px;
+  vertical-align: 2px;
+}
+
+.panel .hint { color: var(--ink-soft); font-size: 14px; margin: 0 0 18px 36px; }
+.panel .body { margin-left: 36px; }
+
+label.field { display: block; margin-bottom: 16px; max-width: 420px; }
+label.field .lab { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+label.field .sub { display: block; color: var(--ink-soft); font-size: 13px; margin-top: 4px; }
+
+input[type="text"], input[type="date"], input[type="file"] {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #c4c4cc;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 15px;
+  background: #fff;
+}
+
+input[type="file"] { padding: 8px; background: #fafafc; }
+
+button, .btn {
+  display: inline-block;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 11px 20px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button.primary, .btn.primary { background: var(--dmu-red); color: #fff; }
+button.primary:hover, .btn.primary:hover { background: var(--dmu-red-dark); }
+
+button.secondary, .btn.secondary {
+  background: #fff;
+  color: var(--ink);
+  border-color: #c4c4cc;
+}
+button.secondary:hover, .btn.secondary:hover { background: #f6f6f9; }
+
+.actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+
+table.reqs { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+
+table.reqs th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+  padding: 0 10px 8px 0;
+  font-weight: 700;
+}
+
+table.reqs td {
+  padding: 12px 10px 12px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  font-size: 15px;
+}
+
+table.reqs td.tick { width: 30px; padding-right: 0; }
+table.reqs input[type="checkbox"] { width: 18px; height: 18px; margin: 2px 0 0; }
+table.reqs .event { font-weight: 600; display: block; }
+table.reqs .meta { color: var(--ink-soft); font-size: 13px; display: block; margin-top: 1px; }
+table.reqs label { cursor: pointer; }
+table.reqs .num { white-space: nowrap; }
+
+.note, .warn, .err, .ok-note {
+  border-radius: 8px;
+  padding: 13px 16px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.note { background: #eef2fb; border: 1px solid #ccd8f0; }
+.warn { background: var(--warn-bg); border: 1px solid #eedcae; color: var(--warn); }
+.err { background: var(--err-bg); border: 1px solid #f0c4c9; color: var(--err); }
+.ok-note { background: #edf7f1; border: 1px solid #bfe3ce; color: var(--ok); }
+
+.warn strong, .err strong, .ok-note strong { font-weight: 700; }
+
+.skipped { margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--ink-soft); }
+.skipped li { margin-bottom: 3px; }
+
+.tiny { font-size: 13px; color: var(--ink-soft); }
+
+.result {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ok);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+
+.result h3 { margin: 0 0 6px; font-size: 16px; }
+.result dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 8px 0 0; font-size: 14px; }
+.result dt { color: var(--ink-soft); }
+.result dd { margin: 0; }
+.result code { font-family: Consolas, "Courier New", monospace; font-size: 13.5px; }
+
+.path {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.checkline { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; max-width: 620px; }
+.checkline input { width: 18px; height: 18px; margin-top: 3px; flex: 0 0 auto; }
+.checkline .lab { font-size: 14.5px; }
+.checkline .sub { display: block; color: var(--ink-soft); font-size: 13px; }
+
+footer.foot {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+footer.foot a { color: var(--dmu-red); }

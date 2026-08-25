@@ -1,0 +1,32 @@
+{% extends "_base.html" %}
+{% from "_whoami.html" import whoami %}
+{% block heading %}Redeem a voucher{% endblock %}
+{% block whoami %}{{ whoami(venue) }}{% endblock %}
+{% block content %}
+
+  <div class="card">
+    <h2>Type the voucher number</h2>
+    <p class="hint">
+      It is in the red box at the bottom of the voucher. Nine digits. You can
+      leave out the dashes.
+    </p>
+
+    <form method="post" action="{{ url_for('check') }}">
+      {# inputmode numeric brings up the phone keypad rather than a keyboard.
+         The field accepts the dashes and the DMU prefix too, so a vendor who
+         types the whole thing off the paper is not told they got it wrong. #}
+      <input class="reference" type="text" name="reference" required autofocus
+             inputmode="numeric" autocomplete="off" autocapitalize="characters"
+             autocorrect="off" spellcheck="false" maxlength="20"
+             placeholder="000 000 000"
+             aria-label="Voucher number">
+      <button class="primary block" type="submit" style="margin-top:16px">Check this voucher</button>
+    </form>
+  </div>
+
+  <p class="tiny" style="text-align:center">
+    Checking a number does not use the voucher up. You get to see the value
+    before anything is recorded.
+  </p>
+
+{% endblock %}

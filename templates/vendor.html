@@ -1,0 +1,75 @@
+<!doctype html>
+{# One page to hand to Saints of Mokha and the street food vendor, so nobody has
+   to be talked through the process on the day. #}
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>Accepting DMU Food &amp; Drink vouchers</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body>
+{% from "_voucher.html" import voucher %}
+<div class="vendor-page">
+
+  <h1>Accepting DMU Food &amp; Drink vouchers</h1>
+  <p class="lede">
+    De Montfort University issues these paper vouchers to attendees at university
+    events. They are redeemable with you. This page explains what to do when one
+    is handed over.
+  </p>
+
+  <h2>When a customer hands you a voucher</h2>
+  <ol class="steps">
+    <li><strong>Scan the QR code with your own phone or till device.</strong> The
+      same code is on every voucher, so bookmark the page and you can skip the
+      scan next time. The customer should not scan it themselves.</li>
+    <li><strong>Sign in once at the start of your shift</strong>, with the
+      password the university gave you, and choose which venue you are.</li>
+    <li><strong>Type the voucher number</strong> from the red box, for example
+      <span class="mono">{{ sample.code }}</span>.</li>
+    <li><strong>Green means redeem it. Red means do not</strong>, because the
+      voucher has already been used, has expired, or is not one of ours.</li>
+    <li><strong>Press Redeem, then serve the order</strong> up to the value shown
+      in large type at the top of the voucher, and keep the voucher.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>If the order comes to less than the voucher value</strong>, no change
+    or cash is given, and the difference is not carried over.
+    <strong>If it comes to more</strong>, the customer pays the difference
+    themselves as normal.<br>
+    <strong>If you cannot get online</strong>, take the voucher anyway and write
+    the number down. Redeem it on the site once you have a signal. Do not turn a
+    customer away over it.
+  </div>
+
+  <h2>Please do not accept</h2>
+  <ul class="plain">
+    <li>Any voucher the site does not show in green. That is the check, not the
+      look of the paper.</li>
+    <li>A voucher whose number is missing or damaged. The QR code alone does not
+      say which voucher it is, so without the number it cannot be redeemed.</li>
+    <li>More than one voucher against a single transaction.</li>
+  </ul>
+
+  <h2>What a voucher looks like</h2>
+  <div class="vendor-sample">
+    <div class="sample-stage">{{ voucher(sample, cfg, qr, logos) }}</div>
+    <div class="sample-note">
+      <strong>This is an example only.</strong> A real voucher carries its own
+      number in the red box and its own "valid until" date, and a real number
+      never starts 000. The value may differ from event to event, so always read
+      the value printed on the voucher in front of you.
+    </div>
+  </div>
+
+  <div class="vendor-foot">
+    <strong>Questions on the day:</strong> contact the DMU event lead named on the
+    booking, or DMU Venues at dmuvenues@dmu.ac.uk.<br>
+    Quote the voucher number from the red box if you need to query a specific
+    voucher with the university.
+  </div>
+
+</div>
+</body>
+</html>

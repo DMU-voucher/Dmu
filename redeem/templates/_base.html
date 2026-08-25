@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}DMU Food &amp; Drink vouchers{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap {% block headwrap %}{% endblock %}">
+    <div class="brand">
+      <span class="fd-tag">FOOD &amp; DRINK</span>
+      <h1>{% block heading %}Voucher redemption{% endblock %}</h1>
+    </div>
+    {% block whoami %}{% endblock %}
+  </div>
+</header>
+
+<div class="wrap {% block bodywrap %}{% endblock %}">
+  {% block content %}{% endblock %}
+
+  <footer class="foot">
+    {% block foot %}
+      De Montfort University. Vendor use only.
+    {% endblock %}
+  </footer>
+</div>
+
+</body>
+</html>

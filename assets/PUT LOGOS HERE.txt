@@ -1,0 +1,11 @@
+Drop the two logo files in this folder and the vouchers will use them:
+
+  dmu-logo.png              the DMU / De Montfort University Leicester logo
+  food-and-drink-logo.png   the orange FOOD & DRINK logo
+
+.jpg and .svg work too, as long as the file name matches.
+
+Until they are here, the voucher header uses a plain text stand-in. Nothing
+breaks without them, the header just will not match the existing voucher.
+
+Transparent PNGs are best. Any size: the layout scales them by height.

@@ -1,0 +1,4 @@
+# The redemption site needs nothing but Flask. No database server, no queue,
+# no build step: SQLite and the standard library do the rest. That is what
+# makes it deployable on a free PythonAnywhere account and handable to DMU IT.
+Flask>=3.0

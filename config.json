@@ -1,0 +1,23 @@
+{
+  "_comment": "Everything the wording or the link might need changing to lives in this file. Edit it in Notepad, save, then reload the app in the browser. No need to touch any other file.",
+  "_redeem_url": "The address of the redemption site the vendor's phone opens when they scan. The same QR code goes on every voucher, so this is the only link involved. Keep it short: a long one makes the QR print too fine to scan.",
+  "redeem_url": "https://dmuvouchers.pythonanywhere.com",
+  "venues": [
+    "Saints of Mokha",
+    "Devorer Street Vendor (outside Monty's)"
+  ],
+  "voucher_title": "Food & Drink Voucher",
+  "qr_label": "Vendor use only",
+  "qr_instruction": "Scan, then type the number",
+  "reference_label": "Voucher number",
+  "holder_instruction": "Hand this voucher to the vendor to redeem.",
+  "venue_intro": "Redeemable only at:",
+  "venue_warning": "Not accepted anywhere else on campus, including the convenience store.",
+  "valid_until_label": "Valid until",
+  "small_print": [
+    "Not exchangeable for cash.",
+    "If the full value is not used, change will not be given.",
+    "One voucher per transaction. No photocopies."
+  ],
+  "vouchers_per_page": 6
+}

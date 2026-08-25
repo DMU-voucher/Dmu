@@ -1,0 +1,539 @@
+/* Voucher styling. Shared by the browser preview and the printed PDF, so what
+   you see on screen is what comes out of the printer.
+
+   Sizes are in mm and pt on purpose: this artwork gets cut out with scissors,
+   so the units need to mean something physical. */
+
+:root {
+  --dmu-red: #a6192e;
+  --dmu-red-dark: #7c1322;
+  --fd-orange: #f07f1a;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --rule: #c9c9c9;
+  --cut: #b8b8b8;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: var(--ink);
+  font-family: "Segoe UI", Tahoma, Arial, Helvetica, sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---------------------------------------------------------------- sheet ---- */
+
+.sheet {
+  width: 210mm;
+  height: 297mm;
+  display: grid;
+  grid-template-columns: 105mm 105mm;
+  grid-template-rows: 99mm 99mm 99mm;
+  page-break-after: always;
+  break-after: page;
+  overflow: hidden;
+}
+
+.sheet:last-of-type {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.cell {
+  padding: 4mm;
+  border-right: 0.2mm dashed var(--cut);
+  border-bottom: 0.2mm dashed var(--cut);
+}
+
+.cell:nth-child(2n) { border-right: none; }
+.cell:nth-child(n + 5) { border-bottom: none; }
+.cell.empty { border-color: transparent; }
+
+/* -------------------------------------------------------------- voucher ---- */
+
+.voucher {
+  width: 100%;
+  height: 100%;
+  border: 0.4mm solid var(--ink);
+  border-radius: 1.5mm;
+  padding: 3mm 3.5mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6mm;
+  background: #fff;
+}
+
+/* Header: Food & Drink lockup left, DMU right, as on the current voucher. */
+
+.v-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2mm;
+  padding-bottom: 1.4mm;
+  border-bottom: 0.25mm solid var(--rule);
+}
+
+.v-head img.fd-logo { height: 7mm; width: auto; }
+.v-head img.dmu-logo { height: 8mm; width: auto; }
+
+.fd-lockup {
+  display: inline-flex;
+  align-items: baseline;
+  background: var(--fd-orange);
+  color: #fff;
+  padding: 1mm 2mm;
+  border-radius: 0.6mm;
+  font-size: 10pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.fd-lockup .amp {
+  color: #fff;
+  opacity: 0.85;
+  padding: 0 0.4mm;
+  font-weight: 700;
+}
+
+.dmu-lockup {
+  color: var(--dmu-red);
+  font-size: 8.5pt;
+  font-weight: 700;
+  line-height: 1.05;
+  text-align: right;
+  letter-spacing: 0.01em;
+}
+
+.dmu-lockup span {
+  display: block;
+  font-size: 5.2pt;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Value strip. The one thing that has to read at arm's length. */
+
+.v-value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2mm;
+}
+
+.v-value {
+  font-size: 21pt;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dmu-red);
+  letter-spacing: -0.01em;
+}
+
+.v-title {
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+/* Middle: QR on the left, where it can be redeemed on the right. Both columns
+   stretch to fill whatever height is left over between the value and the foot,
+   so there is no dead band in the middle of the voucher. */
+
+.v-mid {
+  display: flex;
+  gap: 3mm;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+
+/* Fixed at the width of the QR box. The captions underneath must wrap inside
+   that width rather than spilling towards the venue column, so the whole block
+   stays visually attached to the code it labels however the wording is
+   reworded in config.json. */
+.v-qr {
+  flex: 0 0 29mm;
+  width: 29mm;
+  min-width: 0;
+  max-width: 29mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8mm;
+  overflow-wrap: break-word;
+}
+
+.qr-box {
+  width: 29mm;
+  height: 29mm;
+  padding: 1mm;
+  border: 0.25mm solid var(--rule);
+  border-radius: 0.8mm;
+  background: #fff;
+}
+
+.qr-box svg,
+.qr-box .qr-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  shape-rendering: crispEdges;
+}
+
+.qr-missing {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 5.5pt;
+  font-weight: 600;
+  color: var(--dmu-red);
+  border: 0.3mm dashed var(--dmu-red);
+  border-radius: 0.6mm;
+  padding: 1mm;
+  line-height: 1.2;
+}
+
+.v-qr-label {
+  font-size: 5.8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dmu-red);
+  text-align: center;
+  line-height: 1.15;
+}
+
+.v-qr-sub {
+  font-size: 5.2pt;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* The voucher number. One QR code serves the whole run, so this is the only
+   thing on the artwork that identifies this particular voucher, and a vendor
+   has to key it in off the paper with a queue waiting. Full width of the
+   voucher, monospace so 8 and B cannot be confused, and set as large as the
+   foot will carry. */
+
+.v-ref-strip {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2mm;
+  padding: 1.1mm 2mm;
+  border: 0.3mm solid var(--dmu-red);
+  border-radius: 0.8mm;
+  background: #fdf4f5;
+}
+
+.v-ref-label {
+  font-size: 5.2pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dmu-red);
+  white-space: nowrap;
+}
+
+.v-ref-number {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.v-where {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.v-where-intro {
+  font-size: 6.6pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  margin-bottom: 0.8mm;
+}
+
+.v-venues {
+  margin: 0 0 1.2mm;
+  padding: 0;
+  list-style: none;
+}
+
+.v-venues li {
+  font-size: 9pt;
+  font-weight: 700;
+  line-height: 1.3;
+  padding-left: 3.2mm;
+  position: relative;
+  margin-bottom: 0.5mm;
+}
+
+.v-venues li::before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 0.6mm;
+  top: 1.4mm;
+  width: 1.5mm;
+  height: 1.5mm;
+  border-radius: 50%;
+  background: var(--fd-orange);
+}
+
+.v-warning {
+  font-size: 6.4pt;
+  font-weight: 700;
+  color: var(--dmu-red);
+  line-height: 1.3;
+}
+
+/* Sits at the bottom of its column so the voucher has no dead band. */
+.v-action {
+  font-size: 7.8pt;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 1.5mm 1.8mm;
+  margin-top: auto;
+  background: #f6f6f6;
+  border-left: 0.8mm solid var(--fd-orange);
+  border-radius: 0.4mm;
+}
+
+/* Foot: dates, small print, code. */
+
+.v-foot {
+  border-top: 0.25mm solid var(--rule);
+  padding-top: 1.2mm;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8mm;
+}
+
+.v-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  font-size: 6.4pt;
+  color: var(--ink-soft);
+}
+
+.v-dates strong { color: var(--ink); font-weight: 700; }
+
+.v-small {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 5.4pt;
+  color: var(--ink-soft);
+  line-height: 1.3;
+}
+
+.v-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2mm;
+  margin-top: 0.4mm;
+}
+
+.v-event {
+  font-size: 5.4pt;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60mm;
+}
+
+/* ------------------------------------------------- single voucher page ---- */
+
+.single-page {
+  width: 210mm;
+  height: 297mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8mm;
+  page-break-after: always;
+  break-after: page;
+}
+
+.single-page:last-of-type { page-break-after: auto; break-after: auto; }
+
+.single-stage {
+  width: 145mm;
+  height: 136mm;
+}
+
+.single-stage .voucher {
+  width: 97mm;
+  height: 91mm;
+  transform: scale(1.494);
+  transform-origin: top left;
+}
+
+.single-note {
+  width: 145mm;
+  font-size: 8pt;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------- vendor instructions --- */
+
+/* Sized to land on a single A4 page: this gets handed over on the day, and a
+   second sheet would get separated from the first. */
+
+.vendor-page {
+  width: 210mm;
+  height: 297mm;
+  padding: 13mm 17mm;
+  display: flex;
+  flex-direction: column;
+}
+
+.vendor-page h1 {
+  font-size: 18pt;
+  margin: 0 0 1.5mm;
+  color: var(--dmu-red);
+}
+
+.vendor-page .lede {
+  font-size: 10.5pt;
+  color: var(--ink-soft);
+  margin: 0 0 5mm;
+  line-height: 1.4;
+}
+
+.vendor-page h2 {
+  font-size: 11.5pt;
+  margin: 5mm 0 2.5mm;
+  padding-bottom: 1.2mm;
+  border-bottom: 0.3mm solid var(--rule);
+}
+
+.steps { counter-reset: step; list-style: none; margin: 0; padding: 0; }
+
+.steps li {
+  position: relative;
+  padding: 0 0 3.2mm 11mm;
+  font-size: 10.5pt;
+  line-height: 1.4;
+}
+
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: -0.3mm;
+  width: 7.5mm;
+  height: 7.5mm;
+  border-radius: 50%;
+  background: var(--fd-orange);
+  color: #fff;
+  font-weight: 700;
+  font-size: 10.5pt;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vendor-page .mono {
+  font-family: Consolas, "Courier New", monospace;
+  font-weight: 700;
+  background: #fdf4f5;
+  border: 0.2mm solid var(--rule);
+  border-radius: 0.5mm;
+  padding: 0 0.8mm;
+  white-space: nowrap;
+}
+
+.vendor-page ul.plain { margin: 0; padding-left: 6mm; font-size: 10pt; line-height: 1.45; }
+.vendor-page ul.plain li { margin-bottom: 1.4mm; }
+
+.callout {
+  margin: 4mm 0 0;
+  padding: 3.2mm 4mm;
+  background: #fdf3e8;
+  border-left: 1.2mm solid var(--fd-orange);
+  border-radius: 0.8mm;
+  font-size: 10pt;
+  line-height: 1.4;
+}
+
+.vendor-foot {
+  margin-top: auto;
+  padding-top: 3.5mm;
+  border-top: 0.3mm solid var(--rule);
+  font-size: 8.5pt;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.vendor-sample {
+  display: flex;
+  gap: 6mm;
+  align-items: flex-start;
+  margin: 3mm 0 0;
+}
+
+/* The sample is the real voucher artwork, shrunk, so it always matches what
+   comes off the printer.
+
+   overflow: hidden is load-bearing. transform shrinks the voucher visually but
+   leaves its layout box at the full 97 x 91mm, and Chromium paginates on layout
+   overflow, so without the clip the handout spills a sliver of voucher edge
+   onto a second page. Clipping costs nothing: the drawn artwork is 67.5mm tall
+   inside a 68mm stage. */
+.vendor-sample .sample-stage {
+  flex: 0 0 72mm;
+  height: 68mm;
+  overflow: hidden;
+}
+
+.vendor-sample .voucher {
+  width: 97mm;
+  height: 91mm;
+  transform: scale(0.742);
+  transform-origin: top left;
+}
+
+.vendor-sample .sample-note {
+  flex: 1 1 auto;
+  font-size: 9.5pt;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.vendor-sample .sample-note strong { color: var(--ink); }

@@ -1,0 +1,78 @@
+{# One voucher. Used by the print sheet, the single-voucher PDFs and the vendor
+   instruction sheet, so there is only ever one definition of the artwork. #}
+
+{% macro voucher(v, cfg, qr, logos) %}
+<div class="voucher">
+
+  <div class="v-head">
+    {% if logos.food_and_drink %}
+      <img class="fd-logo" src="{{ logos.food_and_drink }}" alt="Food &amp; Drink">
+    {% else %}
+      <span class="fd-lockup">FOOD<span class="amp">&amp;</span>DRINK</span>
+    {% endif %}
+
+    {% if logos.dmu %}
+      <img class="dmu-logo" src="{{ logos.dmu }}" alt="De Montfort University Leicester">
+    {% else %}
+      <span class="dmu-lockup">DMU<span>De Montfort University</span></span>
+    {% endif %}
+  </div>
+
+  <div class="v-value-row">
+    <div class="v-value">{{ v.value_display }}</div>
+    <div class="v-title">{{ cfg.voucher_title }}</div>
+  </div>
+
+  <div class="v-mid">
+    <div class="v-qr">
+      <div class="qr-box">
+        {% if qr %}
+          {{ qr|safe }}
+        {% else %}
+          <div class="qr-missing">QR code not set up yet</div>
+        {% endif %}
+      </div>
+      <div class="v-qr-label">{{ cfg.qr_label }}</div>
+      <div class="v-qr-sub">{{ cfg.qr_instruction }}</div>
+    </div>
+
+    <div class="v-where">
+      <div class="v-where-intro">{{ cfg.venue_intro }}</div>
+      <ul class="v-venues">
+        {% for venue in cfg.venues %}<li>{{ venue }}</li>{% endfor %}
+      </ul>
+      <div class="v-warning">{{ cfg.venue_warning }}</div>
+      <div class="v-action">{{ cfg.holder_instruction }}</div>
+    </div>
+  </div>
+
+  <div class="v-foot">
+    <div class="v-dates">
+      {% if v.valid_until %}
+        <div>{{ cfg.valid_until_label }} <strong>{{ v.valid_until }}</strong></div>
+      {% else %}
+        <div></div>
+      {% endif %}
+      {% if v.event_date %}<div>Event <strong>{{ v.event_date }}</strong></div>{% endif %}
+    </div>
+
+    <ul class="v-small">
+      {% for line in cfg.small_print %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+
+    {# The QR code is identical on every voucher, so this number is the only
+       thing on the artwork that says which voucher this is. The vendor keys it
+       in off the paper with a queue waiting, so it gets the full width of the
+       voucher rather than a column, and the largest type the foot can carry. #}
+    <div class="v-ref-strip">
+      <span class="v-ref-label">{{ cfg.reference_label }}</span>
+      <span class="v-ref-number">{{ v.code }}</span>
+    </div>
+
+    <div class="v-code-row">
+      <div class="v-event">{{ v.event_name }}</div>
+    </div>
+  </div>
+
+</div>
+{% endmacro %}

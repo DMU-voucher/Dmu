@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DMU Food &amp; Drink voucher generator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <span class="fd-tag">FOOD &amp; DRINK</span>
+    <div>
+      <h1>Voucher generator</h1>
+      <p>De Montfort University. Everything happens on this computer, nothing is uploaded.</p>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  {% if not redeem_ready %}
+    <div class="warn">
+      <strong>The QR code is not set up yet.</strong>
+      Open <code>config.json</code> in Notepad, put the address of the redemption
+      site in place of the placeholder, save, then reload this page. Until then
+      vouchers print with an empty QR box, which is fine for checking the layout
+      but not for issuing.
+    </div>
+  {% endif %}
+
+  {% if qr and not qr.ok %}
+    <div class="warn">
+      <strong>The redemption link is long, so the QR code will print quite fine.</strong>
+      Each square comes out at {{ qr.module_mm }}mm, and below about 0.5mm phone
+      cameras start to struggle with printed toner. Use the shortest address the
+      site answers on, with no folder on the end.
+    </div>
+  {% endif %}
+
+  {% if pool.total and pool.remaining < 1000 %}
+    <div class="warn">
+      <strong>Voucher numbers are running low: {{ '{:,}'.format(pool.remaining) }} left
+      of {{ '{:,}'.format(pool.total) }}.</strong>
+      Nothing breaks until they run out, but read the "Topping up the numbers"
+      section of the README before that happens.
+    </div>
+  {% endif %}
+
+  {% if error %}
+    <div class="err">
+      <strong>{{ error }}</strong>
+      {% if error_skipped %}
+        <ul class="skipped">
+          {% for s in error_skipped %}
+            <li>Row {{ s.row_number }} ({{ s.event_name }}): {{ s.reason }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <h2><span class="step">1</span>Choose the approval export</h2>
+    <p class="hint">
+      The CSV you download from the voucher request form. Vouchers are only made
+      for rows showing as <strong>Approved</strong>.
+    </p>
+    <div class="body">
+      <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+        <label class="field">
+          <span class="lab">Voucher approval CSV</span>
+          <input type="file" name="csv" accept=".csv,text/csv" required>
+        </label>
+        <button class="primary" type="submit">Read the file</button>
+      </form>
+    </div>
+  </div>
+
+  {% if parsed %}
+    <div class="panel">
+      <h2><span class="step">2</span>Check what was found</h2>
+      <p class="hint">From <strong>{{ parsed.filename }}</strong>.</p>
+      <div class="body">
+
+        <form method="post" action="{{ url_for('generate') }}">
+          <input type="hidden" name="token" value="{{ parsed.token }}">
+
+          <table class="reqs">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Event</th>
+                <th class="num">Vouchers</th>
+                <th class="num">Each</th>
+                <th class="num">Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in parsed.rows %}
+                {% set r = item.request %}
+                <tr>
+                  <td class="tick">
+                    <input type="checkbox" name="selected" value="{{ item.index }}"
+                           id="sel{{ item.index }}"
+                           {% if not submitted or item.index|string in submitted.getlist('selected') %}checked{% endif %}>
+                  </td>
+                  <td>
+                    <label for="sel{{ item.index }}">
+                      <span class="event">{{ r.event_name }}</span>
+                      <span class="meta">
+                        Cost centre {{ r.cost_centre or 'not given' }}
+                        {%- if r.budget_approver %} &middot; approved by {{ r.budget_approver }}{% endif %}
+                      </span>
+                    </label>
+                  </td>
+                  <td class="num">{{ r.count }}</td>
+                  <td class="num">{{ r.value_display }}</td>
+                  <td class="num">{{ r.total_display }}</td>
+                  <td>
+                    <a class="tiny" target="_blank"
+                       href="{{ url_for('preview', token=parsed.token, index=item.index) }}">Preview</a>
+                  </td>
+                </tr>
+                {% if r.warnings or item.previous %}
+                  <tr>
+                    <td></td>
+                    <td colspan="5">
+                      {% for w in r.warnings %}
+                        <div class="warn" style="margin:6px 0 0">{{ w }}</div>
+                      {% endfor %}
+                      {% if item.previous %}
+                        <div class="warn" style="margin:6px 0 0">
+                          <strong>Already issued.</strong>
+                          {{ item.previous.count }} vouchers for this event and value
+                          went out on {{ item.previous.issued_at }} as batch
+                          {{ item.previous.batch }}
+                          ({{ item.previous.codes[0] }} to {{ item.previous.codes[-1] }}).
+                          Untick it, or tick the box further down to issue a second set.
+                        </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% if parsed.skipped %}
+            <div class="note">
+              <strong>Rows not used ({{ parsed.skipped|length }}):</strong>
+              <ul class="skipped">
+                {% for s in parsed.skipped %}
+                  <li>Row {{ s.row_number }}, {{ s.event_name }}: {{ s.reason }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <h2 style="margin-top:26px"><span class="step">3</span>Set the dates</h2>
+          <p class="hint">
+            Printed on every voucher. The vendor is told not to accept a voucher
+            after the valid until date.
+          </p>
+          <div class="body" style="margin-left:36px">
+            <label class="field">
+              <span class="lab">Valid until</span>
+              <input type="date" name="valid_until"
+                     value="{{ submitted.get('valid_until') or default_valid_until }}" required>
+              <span class="sub">Defaults to 30 days from today.</span>
+            </label>
+
+            <label class="field">
+              <span class="lab">Event date (optional)</span>
+              <input type="date" name="event_date" value="{{ submitted.get('event_date', '') }}">
+              <span class="sub">Leave blank to keep it off the voucher.</span>
+            </label>
+
+            <label class="field">
+              <span class="lab">Issued by (optional)</span>
+              <input type="text" name="issued_by" placeholder="Your name" maxlength="60"
+                     value="{{ submitted.get('issued_by', '') }}">
+              <span class="sub">Recorded in the log, not printed on the voucher.</span>
+            </label>
+
+            <label class="checkline">
+              <input type="checkbox" name="make_singles"
+                     {% if not submitted or submitted.get('make_singles') %}checked{% endif %}>
+              <span class="lab">
+                Also make one PDF per voucher
+                <span class="sub">For emailing to attendees before the event. The
+                  print sheet is always made either way.</span>
+              </span>
+            </label>
+
+            <label class="checkline">
+              <input type="checkbox" name="override_duplicates"
+                     {% if submitted.get('override_duplicates') %}checked{% endif %}>
+              <span class="lab">
+                Issue these again anyway
+                <span class="sub">Only tick this if you deliberately need a second
+                  set for an event that has already had vouchers.</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button class="primary" type="submit">Make the vouchers</button>
+            <span class="tiny">Takes a few seconds. Leave this page open.</span>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  {% endif %}
+
+  <footer class="foot">
+    {% if ledger_count %}
+      {{ ledger_count }} voucher{{ '' if ledger_count == 1 else 's' }} issued to date{% if last_issued %}, most recently on {{ last_issued }}{% endif %}.
+      <a href="{{ url_for('ledger_csv') }}" target="_blank">View the log</a> &middot;
+    {% endif %}
+    <a href="{{ url_for('preview_vendor') }}" target="_blank">Vendor instruction sheet</a>
+    &middot; Redeemable at {{ cfg.venues|join(' and ') }}.
+    {% if pool.total %}
+      <br>{{ '{:,}'.format(pool.remaining) }} unused voucher numbers left of
+      {{ '{:,}'.format(pool.total) }}.
+    {% endif %}
+  </footer>
+
+</div>
+</body>
+</html>

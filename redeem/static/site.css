@@ -1,0 +1,285 @@
+/* The redemption site.
+
+   This is used one-handed, on a phone, behind a counter, with somebody waiting.
+   So: one thing per screen, targets big enough to hit without looking, and a
+   verdict you can read at a glance from the colour alone before you read a
+   word of it. The admin side is the same stylesheet at a calmer size, because
+   it gets used sitting down. */
+
+:root {
+  --dmu-red: #a6192e;
+  --dmu-red-dark: #7c1322;
+  --fd-orange: #f07f1a;
+  --ink: #1c1c1e;
+  --ink-soft: #5c5c66;
+  --line: #e2e2e7;
+  --page: #f4f4f7;
+  --good: #12693f;
+  --good-bg: #e9f6ee;
+  --bad: #a6192e;
+  --bad-bg: #fdeced;
+  --warn: #8a5a00;
+  --warn-bg: #fdf6e6;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial,
+               Helvetica, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.wrap { max-width: 560px; margin: 0 auto; padding: 0 18px 56px; }
+.wrap.wide { max-width: 1000px; }
+
+header.top {
+  background: #fff;
+  border-bottom: 3px solid var(--dmu-red);
+  padding: 14px 0;
+  margin-bottom: 22px;
+}
+
+header.top .wrap {
+  padding-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.fd-tag {
+  background: var(--fd-orange);
+  color: #fff;
+  font-weight: 700;
+  padding: 5px 9px;
+  border-radius: 3px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+header.top h1 { font-size: 17px; margin: 0; font-weight: 700; }
+
+.whoami {
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-align: right;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.whoami strong { display: block; color: var(--ink); font-size: 14px; }
+
+.whoami button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--dmu-red);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+h2 { font-size: 19px; margin: 0 0 6px; }
+.hint { color: var(--ink-soft); font-size: 15px; margin: 0 0 18px; }
+
+label.field { display: block; margin-bottom: 18px; }
+label.field .lab { display: block; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+label.field .sub { display: block; color: var(--ink-soft); font-size: 14px; margin-top: 6px; }
+
+input[type="text"], input[type="password"], input[type="file"], select, textarea {
+  width: 100%;
+  padding: 13px 13px;
+  border: 1px solid #b9b9c2;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 17px;
+  background: #fff;
+  color: var(--ink);
+}
+
+textarea { min-height: 74px; resize: vertical; }
+
+/* The voucher number field. Big, monospace and letter-spaced so a vendor can
+   see at a glance that what they typed matches the paper in their hand, and
+   inputmode numeric so the phone gives them a keypad rather than a keyboard. */
+input.reference {
+  font-family: Consolas, "SF Mono", Menlo, "Courier New", monospace;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 16px 10px;
+}
+
+button, .btn {
+  display: inline-block;
+  font: inherit;
+  font-weight: 700;
+  font-size: 17px;
+  padding: 15px 22px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+
+button.primary, .btn.primary { background: var(--dmu-red); color: #fff; }
+button.primary:hover { background: var(--dmu-red-dark); }
+
+button.go, .btn.go { background: var(--good); color: #fff; }
+button.go:hover { background: #0d5231; }
+
+button.secondary, .btn.secondary {
+  background: #fff; color: var(--ink); border-color: #b9b9c2;
+}
+button.secondary:hover { background: #f6f6f9; }
+
+button.block, .btn.block { display: block; width: 100%; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.actions > * { flex: 1 1 160px; }
+
+/* ------------------------------------------------------------- verdict ---- */
+
+/* The whole point of the site. Colour first, then a heading you can read from
+   arm's length, then the detail. */
+
+.verdict {
+  border-radius: 14px;
+  padding: 24px 22px;
+  margin-bottom: 18px;
+  border: 2px solid;
+  text-align: center;
+}
+
+.verdict .mark { font-size: 46px; line-height: 1; margin-bottom: 8px; }
+.verdict h2 { font-size: 25px; margin: 0 0 8px; }
+.verdict p { margin: 0; font-size: 16px; line-height: 1.45; }
+
+.verdict.good { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+.verdict.used,
+.verdict.expired,
+.verdict.bad,
+.verdict.blocked { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+
+.verdict .ref {
+  display: inline-block;
+  margin-top: 14px;
+  font-family: Consolas, "SF Mono", Menlo, "Courier New", monospace;
+  font-size: 19px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid currentColor;
+  border-radius: 7px;
+  padding: 5px 12px;
+}
+
+.verdict .amount { font-size: 40px; font-weight: 700; line-height: 1.1; margin: 4px 0 2px; }
+
+dl.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 15px;
+}
+dl.facts dt { color: var(--ink-soft); }
+dl.facts dd { margin: 0; }
+
+/* --------------------------------------------------------------- notes ---- */
+
+.note, .err, .ok {
+  border-radius: 9px;
+  padding: 13px 15px;
+  font-size: 15px;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.note { background: var(--warn-bg); border-color: #eedcae; color: var(--warn); }
+.err { background: var(--bad-bg); border-color: #f0c4c9; color: var(--bad); }
+.ok { background: var(--good-bg); border-color: #bfe3ce; color: var(--good); }
+
+.mono {
+  font-family: Consolas, "SF Mono", Menlo, "Courier New", monospace;
+  font-weight: 700;
+}
+
+.tiny { font-size: 13.5px; color: var(--ink-soft); }
+
+footer.foot {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+footer.foot a { color: var(--dmu-red); }
+
+/* --------------------------------------------------------------- admin ---- */
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+
+table.grid th {
+  text-align: left;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+  padding: 0 10px 8px 0;
+}
+
+table.grid td {
+  padding: 10px 10px 10px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+table.grid td.num, table.grid th.num { text-align: right; padding-right: 0; white-space: nowrap; }
+table.grid .ref { font-family: Consolas, "Courier New", monospace; font-weight: 700; font-size: 13.5px; }
+
+.scroll { overflow-x: auto; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+
+.tile { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.tile .n { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.tile .k { font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; }
+
+.pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.flat { background: #ececf1; color: var(--ink-soft); }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.row > * { flex: 1 1 220px; }
+.row > .shrink { flex: 0 0 auto; }
+
+@media (max-width: 560px) {
+  .verdict h2 { font-size: 22px; }
+  .verdict .amount { font-size: 34px; }
+  input.reference { font-size: 23px; }
+}

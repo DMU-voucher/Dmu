@@ -1,0 +1,37 @@
+# Passwords. Never commit these.
+redeem/.env
+.env
+
+# The voucher database: the pool of 500,000 numbers and what has gone out.
+# 30MB, and it is operational data, not code. The generator draws its own on
+# first run. Back it up with the rest of the Dropbox folder, not with git.
+Ledger/vouchers.db
+Ledger/vouchers.db-wal
+Ledger/vouchers.db-shm
+
+# The redemption site's database. On PythonAnywhere this lives outside the
+# repository anyway, which is what stops a git pull taking the redemptions.
+redeem/data/
+
+# Issued vouchers and the files that made them. Real voucher numbers and real
+# event names: this is client data, and it does not belong on GitHub.
+Output/
+Uploads/
+Ledger/issued_vouchers.csv
+
+# Client artwork, supplied separately.
+assets/*.png
+assets/*.jpg
+assets/*.svg
+
+# The loose copy the generator refreshes each run.
+/Vendor instructions.pdf
+
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Internal drafts and correspondence. Stays in Dropbox, not on GitHub.
+Reply to Jay.txt

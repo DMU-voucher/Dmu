@@ -1,0 +1,22 @@
+<!doctype html>
+{# One voucher on its own page, enlarged, for emailing to an attendee. #}
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body>
+{% from "_voucher.html" import voucher %}
+{% for v in vouchers %}
+  <div class="single-page">
+    <div class="single-stage">{{ voucher(v, cfg, qr, logos) }}</div>
+    <div class="single-note">
+      Show this voucher on your phone or print it, then hand it to the vendor.
+      The QR code is for the vendor to scan when they redeem it, so please do not
+      scan it yourself.
+    </div>
+  </div>
+{% endfor %}
+</body>
+</html>
