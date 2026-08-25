@@ -543,8 +543,25 @@ def admin_import():
         flash("Choose the Import to redemption site.json file first.", "error")
         return redirect(url_for("admin"))
 
+    raw = upload.read()
+
+    # The approval CSV and the batch JSON both live in the same folder and both
+    # sound like "the file from the generator", so this mistake is the obvious
+    # one to make. Say which file it is rather than that it could not be read.
+    looks_like_approval_csv = (
+        upload.filename.lower().endswith(".csv")
+        or b"Number of Vouchers" in raw[:400]
+        or b"Value Per Voucher" in raw[:400]
+    )
+    if looks_like_approval_csv:
+        flash("That is the approval CSV, which goes into the generator on the "
+              "office computer, not here. This wants the file called "
+              "'Import to redemption site.json', in the batch's output folder.",
+              "error")
+        return redirect(url_for("admin"))
+
     try:
-        payload = json.loads(upload.read().decode("utf-8-sig"))
+        payload = json.loads(raw.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError):
         flash("That file could not be read. It should be the "
               "'Import to redemption site.json' from the voucher generator.",

@@ -73,6 +73,11 @@
       voucher generator's output folder. Until a batch is imported its vouchers
       are not recognised here. Importing the same file twice does no harm.
     </p>
+    <p class="note">
+      Not the approval CSV. That one goes into the generator on the office
+      computer and makes the vouchers. This one tells this site the numbers
+      exist. Both sit in the same folder, which is why they get mixed up.
+    </p>
     <form method="post" action="{{ url_for('admin_import') }}" enctype="multipart/form-data">
       <div class="row">
         <input type="file" name="batch" accept=".json,application/json" required>
