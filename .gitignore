@@ -35,3 +35,12 @@ desktop.ini
 
 # Internal drafts and correspondence. Stays in Dropbox, not on GitHub.
 Reply to Jay.txt
+
+# The healthcare film that was briefly merged in here from the benchmarking
+# repository. The files stay in the folder, but they belong to that repo, not
+# to the voucher app.
+/index.html
+/insiderpro-healthcare-v2.mp4
+/poster.jpg
+/.nojekyll
+/.gitattributes
