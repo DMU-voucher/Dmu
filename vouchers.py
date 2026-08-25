@@ -544,35 +544,100 @@ def chunk(items: list, size: int) -> list[list]:
 # --------------------------------------------------------------------------
 
 class PdfWriter:
-    """Renders HTML to A4 PDF with one browser for the whole batch.
+    """Renders HTML to A4 PDF, with whichever engine this machine has.
 
-    Chromium is already on this machine via Playwright. Using it means the
-    preview in the browser and the printed PDF come from the same CSS.
+    Two engines, one set of templates. The rendered HTML is self-contained: the
+    stylesheet is inlined, the logos are data URIs and the QR code is inline
+    SVG. So an engine has nothing to fetch and swapping engines cannot break
+    asset loading, only layout.
+
+    Chromium, through Playwright, where it is installed. On the office computer
+    that means the on-screen preview and the printed PDF come from the same
+    engine, which is the strongest guarantee of a faithful print.
+
+    WeasyPrint where Chromium is not, which means a server. Chromium is 427 MB
+    and a free PythonAnywhere account has 512 MB in total, so a browser is not
+    an option there. WeasyPrint is pure Python and reads the same HTML and CSS.
+
+    Set DMU_PDF_ENGINE to "chromium" or "weasyprint" to force one, which is how
+    you compare the two on a machine that has both.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, engine: str = "") -> None:
+        self.engine = (engine or os.environ.get("DMU_PDF_ENGINE", "")).strip().lower()
         self._playwright = None
         self._browser = None
+        self._weasy = None
+        self.warnings: list[str] = []
 
     def __enter__(self) -> "PdfWriter":
-        from playwright.sync_api import sync_playwright
-        self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch()
+        wanted = self.engine
+
+        if wanted in ("", "chromium"):
+            try:
+                from playwright.sync_api import sync_playwright
+                self._playwright = sync_playwright().start()
+                self._browser = self._playwright.chromium.launch()
+                self.engine = "chromium"
+                return self
+            except Exception:
+                # Tidy up a half-started Playwright before falling back, or it
+                # leaves a node process behind.
+                if self._playwright:
+                    try:
+                        self._playwright.stop()
+                    except Exception:
+                        pass
+                    self._playwright = None
+                if wanted == "chromium":
+                    raise
+
+        import weasyprint
+        self._weasy = weasyprint
+        self.engine = "weasyprint"
+
+        # WeasyPrint reports unsupported CSS to a logger rather than raising.
+        # Collected so a caller can say what it could not draw, instead of
+        # quietly producing a voucher that is subtly wrong.
+        import logging
+
+        class _Collect(logging.Handler):
+            def __init__(self, sink: list[str]) -> None:
+                super().__init__()
+                self.sink = sink
+
+            def emit(self, record: logging.LogRecord) -> None:
+                if record.levelno >= logging.WARNING:
+                    self.sink.append(record.getMessage())
+
+        self._log_handler = _Collect(self.warnings)
+        logging.getLogger("weasyprint").addHandler(self._log_handler)
         return self
 
     def __exit__(self, *exc) -> None:
         if self._browser:
             self._browser.close()
+            self._browser = None
         if self._playwright:
             self._playwright.stop()
+            self._playwright = None
+        if self._weasy is not None:
+            import logging
+            logging.getLogger("weasyprint").removeHandler(self._log_handler)
 
     def write(self, html: str, out_path: Path, base_url: Path = APP_DIR) -> None:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.engine == "chromium":
+            self._write_chromium(html, out_path, base_url)
+        else:
+            self._write_weasyprint(html, out_path, base_url)
+
+    def _write_chromium(self, html: str, out_path: Path, base_url: Path) -> None:
         page = self._browser.new_page()
         try:
             # A file:// base URL so <img src="assets/..."> resolves.
             page.goto(base_url.as_uri() + "/")
             page.set_content(html, wait_until="load")
-            out_path.parent.mkdir(parents=True, exist_ok=True)
             page.pdf(
                 path=str(out_path),
                 format="A4",
@@ -582,6 +647,34 @@ class PdfWriter:
             )
         finally:
             page.close()
+
+    def _write_weasyprint(self, html: str, out_path: Path, base_url: Path) -> None:
+        # No format or margin arguments: the stylesheet's @page rule already
+        # says A4 portrait with no margin, and WeasyPrint honours it.
+        self._weasy.HTML(string=html, base_url=base_url.as_uri() + "/").write_pdf(
+            str(out_path))
+
+
+def pdf_engines_available() -> dict[str, str]:
+    """Which engines this machine can actually use, and why not if it cannot."""
+    out = {}
+    try:
+        from playwright.sync_api import sync_playwright
+        pw = sync_playwright().start()
+        try:
+            browser = pw.chromium.launch()
+            browser.close()
+            out["chromium"] = "ready"
+        finally:
+            pw.stop()
+    except Exception as exc:
+        out["chromium"] = f"not available: {type(exc).__name__}"
+    try:
+        import weasyprint
+        out["weasyprint"] = f"ready, version {weasyprint.__version__}"
+    except Exception as exc:
+        out["weasyprint"] = f"not available: {type(exc).__name__}"
+    return out
 
 
 def unique_output_dir(event_name: str, when: datetime) -> Path:

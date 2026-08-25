@@ -47,3 +47,6 @@ Reply to Jay.txt
 
 # Local launch config for the preview tooling. Not part of the app.
 /.claude/
+
+# Output of check_pdf_engine.py. Test renders, not vouchers.
+/engine-check/
