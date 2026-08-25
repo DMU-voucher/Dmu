@@ -177,12 +177,22 @@ def signout():
 
 @app.get("/")
 def root():
+    """Where the QR code lands, and where anybody typing the address lands.
+
+    A vendor mid-shift goes straight to the number entry. The QR code is the
+    same on every voucher, so this route is hit once per customer, and putting a
+    menu in front of it would mean a tap per customer at a till with a queue.
+
+    Only somebody not signed in sees the choice of vendor or admin.
+    """
     if settings.configured():
         return render_template("unconfigured.html",
                                missing=settings.configured()), 503
-    if not vendor_signed_in():
-        return redirect(url_for("signin"))
-    return redirect(url_for("home"))
+    if vendor_signed_in():
+        return redirect(url_for("home"))
+    if admin_signed_in():
+        return redirect(url_for("admin"))
+    return render_template("choose.html")
 
 
 @app.get("/home")
