@@ -1,7 +1,7 @@
 {
   "_comment": "Everything the wording or the link might need changing to lives in this file. Edit it in Notepad, save, then reload the app in the browser. No need to touch any other file.",
   "_redeem_url": "The address of the redemption site the vendor's phone opens when they scan. The same QR code goes on every voucher, so this is the only link involved. Keep it short: a long one makes the QR print too fine to scan.",
-  "redeem_url": "https://dmuvouchers.pythonanywhere.com",
+  "redeem_url": "PASTE THE ADDRESS OF THE REDEMPTION SITE HERE",
   "venues": [
     "Saints of Mokha",
     "Devorer Street Vendor (outside Monty's)"
