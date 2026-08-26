@@ -1,9 +1,9 @@
 {
   "_comment": "Everything the wording or the link might need changing to lives in this file. Edit it in Notepad, save, then reload the app in the browser. No need to touch any other file.",
   "_qr_url": "The address of the Microsoft Form the vendor's phone opens when they scan. The same QR code goes on every voucher, so this is the only link involved. Use the short forms.office.com/r/ link that Forms offers under Collect responses, not the long ResponsePage.aspx one: a long address makes the QR print too fine to scan. Left as the placeholder text below, vouchers print with an empty QR box, which is fine for checking the layout but not for issuing.",
-  "qr_url": "PASTE THE MICROSOFT FORM ADDRESS HERE",
+  "qr_url": "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=48B4T1DS3027HBXTFFaXzNpH91VJa8dOn_9IM3XVRntUMEpOSEs1MVg2WDBMM1dBQUFZQ0pKU001Vy4u",
   "_vendor_record": "What the vendor sheet tells vendors to do with the number. Once the Microsoft Form exists, put its address in here. Left empty, the sheet tells them their DMU contact will say where.",
-  "vendor_record": "",
+  "vendor_record": "Scan the QR code on the voucher, or open the form you have bookmarked, and enter the number there.",
   "venues": [
     "Saints of Mokha",
     "Devorer Street Vendor (outside Monty's)"
