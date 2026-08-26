@@ -33,17 +33,6 @@ if ! "$PY" -c "import playwright" >/dev/null 2>&1; then
   "$PY" -m playwright install chromium
 fi
 
-# The very first run draws the whole set of 500,000 voucher numbers, which takes
-# about twenty seconds. Do it before the browser opens, or it looks like the app
-# has failed to start. Every run after this skips straight past: the numbers are
-# already drawn and must never be drawn a second time.
-if ! "$PY" -c "import vouchers; vouchers.ensure_pool(progress=lambda m: print('  ' + m))"; then
-  echo
-  echo "  Could not set up the voucher numbers. The message above says why."
-  read -r -p "  Press return to close. "
-  exit 1
-fi
-
 echo "  Starting. Your browser should open in a moment."
 echo "  Leave this window open while you use the app."
 echo

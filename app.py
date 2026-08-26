@@ -121,7 +121,6 @@ def base_context(config: dict) -> dict:
         "last_issued": _last_issued(ledger),
         "default_valid_until": (date.today() + timedelta(days=30)).isoformat(),
         "qr": qr_quality(config),
-        "pool": core.pool_status(),
     }
 
 
@@ -238,8 +237,8 @@ def _index_with_error(message: str, skipped: list[dict] | None = None,
 def preview(token: str, index: int):
     """The print sheet as it will come out, using specimen numbers.
 
-    Nothing is written to the ledger and nothing is taken out of the reference
-    pool. The numbers shown start 000, which no real voucher ever does, so a
+    Nothing is written to the ledger. The numbers shown start 000, which no
+    real voucher ever does, so a
     preview that gets printed by accident cannot be passed off as a voucher.
     """
     session = SESSIONS.get(token)
@@ -320,30 +319,15 @@ def generate():
             token=token,
         )
 
-    total_needed = sum(session["requests"][i].count for i in selected)
-    pool = core.pool_status()
-    if total_needed > pool["remaining"]:
-        return _index_with_error(
-            f"There are only {pool['remaining']:,} voucher numbers left in the "
-            f"pool and this run needs {total_needed:,}. Nothing has been made. "
-            f"See the README section on topping the pool up.",
-            token=token,
-        )
-
     issued_at = datetime.now()
     batch = core._next_batch_number(ledger)
     results = []
-
-    # References come out of the pool before anything is drawn, and go back if
-    # the print run falls over, so a failed run never silently eats numbers.
-    allocated: list[str] = []
 
     try:
         with core.PdfWriter() as writer:
             for i in selected:
                 req = session["requests"][i]
-                references = core.allocate_references(req.count, batch)
-                allocated.extend(references)
+                references = core.draw_references(req.count)
                 vs = core.build_vouchers(req, references, valid_until, event_date)
                 out_dir = core.unique_output_dir(req.event_name, issued_at)
                 out_dir.mkdir(parents=True, exist_ok=True)
@@ -361,14 +345,9 @@ def generate():
                 core.write_batch_summary(out_dir / "Batch summary.csv", req, vs,
                                          batch, valid_until, event_date,
                                          issued_by, issued_at)
-                core.write_batch_export(
-                    out_dir / "Import to redemption site.json", req, vs, batch,
-                    valid_until, event_date, issued_by, issued_at)
                 src = session.get("source_csv")
                 core.copy_source_csv(Path(src) if src else None, out_dir)
 
-                core.record_issued(req, vs, batch, valid_until, event_date,
-                                   issued_by, issued_at)
                 core.append_ledger([{
                     "voucher_code": v.code,
                     "batch": f"{batch:03d}",
@@ -393,7 +372,6 @@ def generate():
                     "first_code": vs[0].code,
                     "last_code": vs[-1].code,
                     "folder": str(out_dir),
-                    "export": "Import to redemption site.json",
                     "pages": -(-len(vs) // int(config.get("vouchers_per_page") or 6)),
                     "singles": singles_written,
                 })
@@ -404,12 +382,9 @@ def generate():
                          core.APP_DIR / "Vendor instructions.pdf")
     except Exception:
         traceback.print_exc()
-        # Whatever was taken out of the pool goes straight back. Nothing was
-        # printed, so those numbers must not be burned.
-        core.release_references(allocated)
         return _index_with_error(
-            "Something went wrong while making the PDFs. Nothing was sent "
-            "anywhere, and the voucher numbers have been put back in the pool. "
+            "Something went wrong while making the PDFs. Nothing was written "
+            "anywhere, so there is nothing to undo. "
             "The details are in the black command window behind this page. If "
             "it mentions 'playwright' or 'chromium', close the app and run "
             "run.bat again.",
@@ -487,7 +462,6 @@ def health():
         "qr_url": core.qr_url(config),
         "qr": qr_quality(config),
         "vouchers_issued": len(core.read_ledger()),
-        "pool": core.pool_status(),
         "logos": {k: bool(v) for k, v in logo_uris().items()},
     })
 
@@ -495,15 +469,6 @@ def health():
 if __name__ == "__main__":
     print()
     print("  DMU Food & Drink voucher generator")
-
-    # First run draws the whole run of voucher numbers. A few seconds, once.
-    drawn = core.ensure_pool(progress=lambda m: print(f"  {m}"))
-    status = core.pool_status()
-    if drawn:
-        print(f"  Voucher numbers ready: {status['total']:,} drawn.")
-    else:
-        print(f"  Voucher numbers: {status['remaining']:,} of "
-              f"{status['total']:,} still unused.")
 
     print("  Open this in your browser:  http://127.0.0.1:5057")
     print("  Leave this window open while you use it.")

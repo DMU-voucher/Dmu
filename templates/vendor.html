@@ -15,23 +15,28 @@
   <p class="lede">
     De Montfort University issues these paper vouchers to attendees at university
     events. They are redeemable with you. This page explains what to do when one
-    is handed over.
+    is handed over. There is no password and nothing to sign in to.
   </p>
 
   <h2>When a customer hands you a voucher</h2>
   <ol class="steps">
-    <li><strong>Scan the QR code with your own phone or till device.</strong> The
-      same code is on every voucher, so bookmark the page and you can skip the
-      scan next time. The customer should not scan it themselves.</li>
-    <li><strong>Sign in once at the start of your shift</strong>, with the
-      password the university gave you, and choose which venue you are.</li>
-    <li><strong>Type the voucher number</strong> from the red box, for example
-      <span class="mono">{{ sample.code }}</span>.</li>
-    <li><strong>Green means redeem it. Red means do not</strong>, because the
-      voucher has already been used, has expired, or is not one of ours.</li>
-    <li><strong>Press Redeem, then serve the order</strong> up to the value shown
-      in large type at the top of the voucher, and keep the voucher.</li>
+    <li><strong>Check the voucher.</strong> The "valid until" date has not
+      passed, the number in the red box is there and readable, and the value is
+      the one printed in large type at the top.</li>
+    <li><strong>Write the number down or enter it</strong>, for example
+      <span class="mono">{{ sample.code }}</span>.
+      {% if cfg.vendor_record %}{{ cfg.vendor_record }}{% else %}Your DMU
+      contact will tell you where to record it.{% endif %}</li>
+    <li><strong>Serve the order</strong> up to the value shown on the
+      voucher.</li>
   </ol>
+
+  <div class="callout">
+    <strong>Keep the voucher. Do not hand it back.</strong> Holding on to the
+    paper is the only thing that stops the same voucher being used a second
+    time, so a voucher returned to a customer can be spent again and nothing
+    will catch it.
+  </div>
 
   <div class="callout">
     <strong>If the order comes to less than the voucher value</strong>, no change
@@ -39,17 +44,18 @@
     <strong>If it comes to more</strong>, the customer pays the difference
     themselves as normal.<br>
     <strong>If you cannot get online</strong>, take the voucher anyway and write
-    the number down. Redeem it on the site once you have a signal. Do not turn a
-    customer away over it.
+    the number down. Nobody should be turned away over it.
   </div>
 
   <h2>Please do not accept</h2>
   <ul class="plain">
-    <li>Any voucher the site does not show in green. That is the check, not the
-      look of the paper.</li>
-    <li>A voucher whose number is missing or damaged. The QR code alone does not
-      say which voucher it is, so without the number it cannot be redeemed.</li>
+    <li>A voucher whose "valid until" date has passed.</li>
+    <li>A voucher whose number is missing or damaged. Without the number there
+      is nothing to record, and the QR code is the same on every voucher so it
+      does not say which one this is.</li>
     <li>More than one voucher against a single transaction.</li>
+    <li>A photocopy, or a photograph of a voucher on a phone. The paper itself
+      has to be handed over.</li>
   </ul>
 
   <h2>What a voucher looks like</h2>

@@ -33,7 +33,8 @@
         {% endif %}
       </div>
       <div class="v-qr-label">{{ cfg.qr_label }}</div>
-      <div class="v-qr-sub">{{ cfg.qr_instruction }}</div>
+      {# No point telling anybody to scan while the box is empty. #}
+      {% if qr %}<div class="v-qr-sub">{{ cfg.qr_instruction }}</div>{% endif %}
     </div>
 
     <div class="v-where">

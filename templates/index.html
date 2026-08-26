@@ -40,15 +40,6 @@
     </div>
   {% endif %}
 
-  {% if pool.total and pool.remaining < 1000 %}
-    <div class="warn">
-      <strong>Voucher numbers are running low: {{ '{:,}'.format(pool.remaining) }} left
-      of {{ '{:,}'.format(pool.total) }}.</strong>
-      Nothing breaks until they run out, but read the "Topping up the numbers"
-      section of the README before that happens.
-    </div>
-  {% endif %}
-
   {% if error %}
     <div class="err">
       <strong>{{ error }}</strong>
@@ -224,10 +215,6 @@
     {% endif %}
     <a href="{{ url_for('preview_vendor') }}" target="_blank">Vendor instruction sheet</a>
     &middot; Redeemable at {{ cfg.venues|join(' and ') }}.
-    {% if pool.total %}
-      <br>{{ '{:,}'.format(pool.remaining) }} unused voucher numbers left of
-      {{ '{:,}'.format(pool.total) }}.
-    {% endif %}
   </footer>
 
 </div>

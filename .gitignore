@@ -18,6 +18,8 @@ redeem/data/
 Output/
 Uploads/
 Ledger/issued_vouchers.csv
+# Issued-voucher records are operational data, never source.
+Ledger/*.csv
 
 # Client artwork, supplied separately.
 assets/*.png

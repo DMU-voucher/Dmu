@@ -37,7 +37,7 @@ def main() -> int:
         q = core.qr_quality(core.qr_url(config))
         print(f"  QR: {q['module_mm']} mm per square, needs {core.QR_MIN_MODULE_MM}, ok={q['ok']}")
 
-    # Throwaway references, so the pool is not touched.
+    # Throwaway references, so nothing reaches the ledger.
     sample = [refs.make_reference(p) for p in range(100001, 100013)]
     req = core.VoucherRequest(
         row_number=2, event_name="Engine check", count=len(sample),

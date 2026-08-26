@@ -19,12 +19,10 @@ from pathlib import Path
 import segno
 
 import refs
-import store
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = APP_DIR / "config.json"
 LEDGER_PATH = APP_DIR / "Ledger" / "issued_vouchers.csv"
-DB_PATH = APP_DIR / "Ledger" / "vouchers.db"
 OUTPUT_DIR = APP_DIR / "Output"
 ASSETS_DIR = APP_DIR / "assets"
 
@@ -450,49 +448,14 @@ class Voucher:
 # References
 # --------------------------------------------------------------------------
 
-def open_db():
-    """The generator's own database: the pool, and what has gone out from it."""
-    return store.open_db(DB_PATH)
+def draw_references(count: int) -> list[str]:
+    """Numbers for a batch about to be printed.
 
-
-def ensure_pool(progress=None) -> int:
-    """Draw the run of references if this is the first time the app has run.
-
-    Half a million takes a few seconds and only ever happens once. After that
-    the pool is left strictly alone, because the references in it are printed
-    on paper and there is no taking them back.
+    The ledger is the record of everything that has gone out, so the ledger is
+    what a new number is checked against. There is no pool and no database: a
+    number exists once it is written to the ledger, and not before.
     """
-    with open_db() as conn:
-        return store.seed_pool(conn, refs.POOL_SIZE, progress=progress)
-
-
-def pool_status() -> dict:
-    with open_db() as conn:
-        total = store.pool_size(conn)
-        used = store.pool_used(conn)
-        return {
-            "total": total,
-            "used": used,
-            "remaining": total - used,
-            "drawn_at": store.meta_get(conn, "pool_drawn_at"),
-        }
-
-
-def allocate_references(count: int, batch: int) -> list[str]:
-    """Take the next references out of the pool and mark them gone.
-
-    Handed out in pool order, which was shuffled when the pool was drawn, so
-    two vouchers on the same printed sheet are nowhere near each other
-    numerically and neither can be guessed from the other.
-    """
-    with open_db() as conn:
-        return store.allocate(conn, count, f"{batch:03d}")
-
-
-def release_references(references: list[str]) -> None:
-    """Hand references back when the print run failed before anything existed."""
-    with open_db() as conn:
-        store.release(conn, references)
+    return refs.draw_references(count, {r["voucher_code"] for r in read_ledger()})
 
 
 def format_uk_date(value: str) -> str:
@@ -513,10 +476,10 @@ def safe_folder_name(name: str) -> str:
 
 def build_vouchers(request: VoucherRequest, references: list[str],
                    valid_until: str, event_date: str) -> list[Voucher]:
-    """Dress a list of already-allocated references as printable vouchers.
+    """Dress a list of references as printable vouchers.
 
-    Allocation is separate on purpose. A preview must never take references out
-    of the pool, so it passes in throwaway ones.
+    Drawing the numbers is separate on purpose. A preview must never write a
+    real number to the ledger, so it passes in throwaway ones.
     """
     return [
         Voucher(
@@ -531,7 +494,7 @@ def build_vouchers(request: VoucherRequest, references: list[str],
 
 
 def sample_references(count: int) -> list[str]:
-    """References for a preview or the vendor handout. Never touches the pool.
+    """References for a preview or the vendor handout. Never recorded anywhere.
 
     Real references are drawn from 10,000,000 upwards, so these low numbers
     print with leading zeros and can never collide with a live voucher. That
@@ -714,55 +677,6 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
         writer.writerow(["Voucher number", "Value", "Redeemed at", "Date redeemed"])
         for v in vouchers:
             writer.writerow([v.code, v.value_display, "", ""])
-
-
-def write_batch_export(path: Path, request: VoucherRequest, vouchers: list[Voucher],
-                       batch: int, valid_until: str, event_date: str,
-                       issued_by: str, issued_at: datetime) -> None:
-    """The file the redemption site needs before these vouchers will work.
-
-    Until this is imported, the site does not know these numbers exist and a
-    vendor scanning one is told the voucher is not recognised. It is a plain
-    JSON file so it can be looked at in Notepad, mailed to whoever administers
-    the site, and imported more than once without doing any harm.
-    """
-    payload = {
-        "format": "dmu-voucher-batch",
-        "version": 1,
-        "batch": f"{batch:03d}",
-        "event_name": request.event_name,
-        "cost_centre": request.cost_centre,
-        "value_pence": request.value_pence,
-        "valid_until": valid_until,
-        "event_date": event_date,
-        "issued_at": issued_at.isoformat(timespec="seconds"),
-        "issued_by": issued_by,
-        "count": len(vouchers),
-        "references": [v.code for v in vouchers],
-    }
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
-def record_issued(request: VoucherRequest, vouchers: list[Voucher], batch: int,
-                  valid_until: str, event_date: str, issued_by: str,
-                  issued_at: datetime) -> None:
-    """Write the printed vouchers into the generator's own database.
-
-    The CSV ledger next to this is kept as well. It is the thing anyone can open
-    without tooling, and it is the audit trail the desk already knows about.
-    """
-    with open_db() as conn:
-        store.record_vouchers(conn, [{
-            "reference": v.code,
-            "batch": f"{batch:03d}",
-            "event_name": request.event_name,
-            "cost_centre": request.cost_centre,
-            "value_pence": request.value_pence,
-            "valid_until": valid_until,
-            "event_date": event_date,
-            "issued_at": issued_at.isoformat(timespec="seconds"),
-            "issued_by": issued_by,
-        } for v in vouchers])
 
 
 def copy_source_csv(source: Path | None, dest_dir: Path) -> None:

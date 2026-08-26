@@ -1,28 +1,19 @@
 """Voucher references: the numbers printed on the vouchers.
 
-One QR code goes on every voucher and it is the same code on all of them. It
-opens the redemption site. What makes each voucher its own thing is the
-reference printed underneath, which the vendor keys in after scanning.
+The number is what identifies a voucher. The QR code on the artwork is the same
+on every one of them, so it says nothing about which voucher it is.
 
-That puts two demands on the reference that pull against each other. It has to
-be quick and forgiving to type on a phone with a queue waiting, and it has to be
-sparse enough that nobody guesses a live one. The shape below is the compromise:
+That puts two demands on the number that pull against each other. It has to be
+quick and forgiving to read off paper and type, and it has to be sparse enough
+that nobody guesses a live one. The shape below is the compromise:
 
     DMU-482-173-906
 
 Nine digits, grouped in threes like a phone number. The first eight are drawn at
-random from 10,000,000 to 99,999,999, so 90 million possibilities for the
-500,000 that get issued. The ninth is a Damm check digit, which catches every
-single-digit slip and every transposition of neighbouring digits, so a mis-keyed
-reference says "that is not a valid reference" rather than quietly finding
-somebody else's voucher.
-
-The references are drawn once into a pool and handed out in that shuffled order,
-so two vouchers printed side by side are nowhere near each other numerically.
-Guessing one from the other tells you nothing.
-
-This module is shared by the generator and the redemption site. Both must agree
-on the check digit or vouchers stop scanning, so it lives in one file.
+random from 10,000,000 to 99,999,999, so 90 million possibilities against the
+few thousand that get issued. The ninth is a Damm check digit, which catches
+every single-digit slip and every transposition of neighbouring digits, so a
+mis-keyed number can be told apart from one that was never issued.
 """
 
 from __future__ import annotations
@@ -33,7 +24,6 @@ import re
 PREFIX = "DMU"
 PAYLOAD_DIGITS = 8
 TOTAL_DIGITS = PAYLOAD_DIGITS + 1  # payload plus the check digit
-POOL_SIZE = 500_000
 
 PAYLOAD_LOW = 10 ** (PAYLOAD_DIGITS - 1)          # 10000000, no leading zero
 PAYLOAD_HIGH = 10 ** PAYLOAD_DIGITS - 1           # 99999999
@@ -67,11 +57,6 @@ def damm_check_digit(digits: str) -> int:
     return interim
 
 
-def damm_valid(digits: str) -> bool:
-    """True when the check digit on the end agrees with the rest."""
-    return damm_check_digit(digits) == 0
-
-
 # ---------------------------------------------------------------------------
 # Formatting and parsing
 # ---------------------------------------------------------------------------
@@ -94,70 +79,31 @@ def make_reference(payload: int) -> str:
     return format_reference(body + str(damm_check_digit(body)))
 
 
-# Typed on a phone by someone holding a paper voucher, so be generous about the
-# spelling and strict about the number underneath. Letters that people
-# substitute for digits get folded back before anything is checked.
-_LOOKALIKES = str.maketrans({"O": "0", "o": "0", "I": "1", "i": "1",
-                             "l": "1", "L": "1", "S": "5", "s": "5"})
-
-
-def normalise_typed(raw: str) -> str | None:
-    """What the vendor typed -> canonical reference, or None if it cannot be one.
-
-    Accepts 'DMU-482-173-906', 'dmu 482173906', '482 173 906', '482173906'.
-    Returns None when the digits do not add up, so a slip never resolves to a
-    real but different voucher.
-    """
-    if not raw:
-        return None
-
-    text = raw.strip().translate(_LOOKALIKES)
-    text = re.sub(r"(?i)^\s*dmu\b", "", text)  # optional prefix
-    body = re.sub(r"\D", "", text)
-
-    if len(body) != TOTAL_DIGITS:
-        return None
-    if not damm_valid(body):
-        return None
-    return format_reference(body)
-
-
-def looks_like_legacy(raw: str) -> bool:
-    """The old batch-scoped codes, DMU-001-01, issued before this scheme.
-
-    Six of them exist. They are still honoured by the redemption site, so keep
-    being able to recognise one.
-    """
-    return bool(re.fullmatch(r"(?i)\s*dmu[-\s]?\d{3}[-\s]?\d{2}\s*", raw or ""))
-
-
-def normalise_legacy(raw: str) -> str | None:
-    if not looks_like_legacy(raw):
-        return None
-    body = digits_of(raw)
-    return f"{PREFIX}-{body[0:3]}-{body[3:5]}"
-
-
 # ---------------------------------------------------------------------------
-# The pool
+# Drawing numbers
 # ---------------------------------------------------------------------------
 
-def build_pool(size: int = POOL_SIZE, seed: int | None = None) -> list[str]:
-    """Draw the whole run of references in one go, in the order they go out.
+def draw_references(count: int, taken: set[str], rng=None) -> list[str]:
+    """Draw `count` references nobody has had before.
 
-    random.sample over the payload range gives distinct payloads without a
-    retry loop, and because the sample is already in random order the pool is
-    shuffled by construction. Distinct payloads mean distinct references: the
-    check digit is a function of the payload, so it cannot collapse two.
+    Random rather than in sequence, so two vouchers on the same printed sheet
+    are nowhere near each other numerically and neither can be guessed from the
+    other.
 
-    Pass a seed only to reproduce a pool for testing. The live pool is drawn
-    once, from the system entropy source, and then never regenerated: the
-    references are printed on paper and cannot be recalled.
+    90 million possible payloads against the few thousand that get issued means
+    a repeat is very unlikely, but `taken` catches one if it happens rather than
+    leaving it to the odds. Pass an rng only to make a test repeatable; left
+    alone it draws from the system entropy source.
     """
-    span = PAYLOAD_HIGH - PAYLOAD_LOW + 1
-    if size > span:
-        raise ValueError(f"cannot draw {size:,} distinct references from {span:,}")
-
-    rng = random.SystemRandom() if seed is None else random.Random(seed)
-    payloads = rng.sample(range(PAYLOAD_LOW, PAYLOAD_HIGH + 1), size)
-    return [make_reference(p) for p in payloads]
+    if count < 0:
+        raise ValueError("cannot draw a negative number of references")
+    rng = rng or random.SystemRandom()
+    drawn: list[str] = []
+    seen = set(taken)
+    while len(drawn) < count:
+        reference = make_reference(rng.randint(PAYLOAD_LOW, PAYLOAD_HIGH))
+        if reference in seen:
+            continue
+        seen.add(reference)
+        drawn.append(reference)
+    return drawn

@@ -1,8 +1,0 @@
-{% macro whoami(venue) %}
-  <div class="whoami">
-    <strong>{{ venue }}</strong>
-    <form method="post" action="{{ url_for('signout') }}" style="display:inline">
-      <button type="submit">Not you? Sign out</button>
-    </form>
-  </div>
-{% endmacro %}
