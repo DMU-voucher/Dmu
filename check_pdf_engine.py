@@ -30,11 +30,11 @@ def main() -> int:
         print(f"    {name:12} {state}")
 
     config = core.load_config()
-    url_ok = core.redeem_url_configured(config)
+    url_ok = core.qr_url_configured(config)
     print()
-    print(f"  Redemption URL configured: {url_ok}")
+    print(f"  QR link configured: {url_ok}")
     if url_ok:
-        q = core.qr_quality(core.redeem_url(config))
+        q = core.qr_quality(core.qr_url(config))
         print(f"  QR: {q['module_mm']} mm per square, needs {core.QR_MIN_MODULE_MM}, ok={q['ok']}")
 
     # Throwaway references, so the pool is not touched.

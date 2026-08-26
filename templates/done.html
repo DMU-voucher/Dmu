@@ -26,22 +26,13 @@
     written to the log so the same code is never issued twice.
   </div>
 
-  {% if not redeem_ready %}
+  {% if not qr_ready %}
     <div class="warn">
       <strong>These vouchers have an empty QR box.</strong>
-      The redemption site address is still missing from <code>config.json</code>.
+      The Microsoft Form address is still missing from <code>config.json</code>.
       Use these for checking the layout only, then make them again once it is in.
     </div>
   {% endif %}
-
-  <div class="warn">
-    <strong>One more step before these vouchers will work.</strong>
-    The redemption site does not know these numbers exist yet. Sign in to
-    {% if redeem_ready %}<a href="{{ redeem_url }}/admin" target="_blank">{{ redeem_url }}/admin</a>{% else %}the site's admin page{% endif %}
-    and upload <code>Import to redemption site.json</code> from each folder
-    below. Until you do, a vendor scanning one of these is told the voucher is
-    not recognised.
-  </div>
 
   {% for r in results %}
     <div class="result">
@@ -80,14 +71,16 @@
       <li>Print <strong>Print sheet.pdf</strong> at <strong>100% scale</strong>, not
         "fit to page", or the vouchers will come out the wrong size.</li>
       <li>Cut along the dashed guides. Six vouchers per A4 sheet.</li>
-      <li>Upload <strong>Import to redemption site.json</strong> to the
-        redemption site's admin page, or these numbers will not be recognised
-        when a vendor tries to redeem one.</li>
       <li>Give <strong>Vendor instructions.pdf</strong> to Saints of Mokha and the
-        street food vendor, along with the vendor password for the site.</li>
+        street food vendor. There is no password to pass on: the QR code opens
+        the form directly.</li>
       <li><strong>Batch summary.csv</strong> lists every number in the batch with
-        blank columns for recording redemptions by hand, as a paper fallback if
-        the site cannot be reached on the day.</li>
+        blank columns for recording redemptions by hand. Use it to reconcile the
+        form's responses afterwards, or on paper at the counter if a vendor
+        cannot get online.</li>
+      <li><strong>Import to redemption site.json</strong> is left in the folder
+        but has nothing to do while the QR code points at a form. It is only
+        needed if the redemption site is ever brought back.</li>
     </ul>
   </div>
 

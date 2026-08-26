@@ -28,7 +28,7 @@ DB_PATH = APP_DIR / "Ledger" / "vouchers.db"
 OUTPUT_DIR = APP_DIR / "Output"
 ASSETS_DIR = APP_DIR / "assets"
 
-PLACEHOLDER_REDEEM_URL = "PASTE THE ADDRESS OF THE REDEMPTION SITE HERE"
+PLACEHOLDER_QR_URL = "PASTE THE MICROSOFT FORM ADDRESS HERE"
 
 LEDGER_FIELDS = [
     "voucher_code",
@@ -55,15 +55,21 @@ def load_config() -> dict:
         return json.load(fh)
 
 
-def redeem_url(config: dict) -> str:
-    """The address every voucher's QR code opens. No trailing slash."""
-    return (config.get("redeem_url") or "").strip().rstrip("/")
+def qr_url(config: dict) -> str:
+    """The address every voucher's QR code opens. No trailing slash.
+
+    Reads qr_url, falling back to redeem_url, which is what this was called
+    while the QR still pointed at our own redemption site. A config.json that
+    has not been updated therefore keeps working.
+    """
+    raw = config.get("qr_url") or config.get("redeem_url") or ""
+    return raw.strip().rstrip("/")
 
 
-def redeem_url_configured(config: dict) -> bool:
-    url = redeem_url(config)
+def qr_url_configured(config: dict) -> bool:
+    url = qr_url(config)
     return (bool(url)
-            and url != PLACEHOLDER_REDEEM_URL
+            and url != PLACEHOLDER_QR_URL
             and url.lower().startswith("http"))
 
 

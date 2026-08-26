@@ -1,7 +1,7 @@
 {
   "_comment": "Everything the wording or the link might need changing to lives in this file. Edit it in Notepad, save, then reload the app in the browser. No need to touch any other file.",
-  "_redeem_url": "The address of the redemption site the vendor's phone opens when they scan. The same QR code goes on every voucher, so this is the only link involved. Keep it short: a long one makes the QR print too fine to scan.",
-  "redeem_url": "https://insiderpro.pythonanywhere.com",
+  "_qr_url": "The address of the Microsoft Form the vendor's phone opens when they scan. The same QR code goes on every voucher, so this is the only link involved. Use the short forms.office.com/r/ link that Forms offers under Collect responses, not the long ResponsePage.aspx one: a long address makes the QR print too fine to scan. Left as the placeholder text below, vouchers print with an empty QR box, which is fine for checking the layout but not for issuing.",
+  "qr_url": "PASTE THE MICROSOFT FORM ADDRESS HERE",
   "venues": [
     "Saints of Mokha",
     "Devorer Street Vendor (outside Monty's)"

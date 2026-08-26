@@ -20,11 +20,11 @@
 
 <div class="wrap">
 
-  {% if not redeem_ready %}
+  {% if not qr_ready %}
     <div class="warn">
       <strong>The QR code is not set up yet.</strong>
-      Open <code>config.json</code> in Notepad, put the address of the redemption
-      site in place of the placeholder, save, then reload this page. Until then
+      Open <code>config.json</code> in Notepad, put the address of the Microsoft
+      Form in place of the placeholder, save, then reload this page. Until then
       vouchers print with an empty QR box, which is fine for checking the layout
       but not for issuing.
     </div>
@@ -32,10 +32,11 @@
 
   {% if qr and not qr.ok %}
     <div class="warn">
-      <strong>The redemption link is long, so the QR code will print quite fine.</strong>
+      <strong>The link is long, so the QR code will print quite fine.</strong>
       Each square comes out at {{ qr.module_mm }}mm, and below about 0.5mm phone
-      cameras start to struggle with printed toner. Use the shortest address the
-      site answers on, with no folder on the end.
+      cameras start to struggle with printed toner. In Microsoft Forms, open
+      Collect responses and copy the short <code>forms.office.com/r/</code> link
+      rather than the long <code>ResponsePage.aspx</code> one.
     </div>
   {% endif %}
 

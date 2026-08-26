@@ -72,8 +72,8 @@ def render_context(config: dict) -> dict:
     """The same QR code goes on every voucher, so it is rendered once here and
     handed to every template. What distinguishes one voucher from the next is
     the number printed under it, not the code itself."""
-    qr = (core.qr_svg(core.redeem_url(config))
-          if core.redeem_url_configured(config) else None)
+    qr = (core.qr_svg(core.qr_url(config))
+          if core.qr_url_configured(config) else None)
     return {"cfg": config, "qr": qr, "logos": logo_uris(), "css": read_css()}
 
 
@@ -116,7 +116,7 @@ def base_context(config: dict) -> dict:
     ledger = core.read_ledger()
     return {
         "cfg": config,
-        "redeem_ready": core.redeem_url_configured(config),
+        "qr_ready": core.qr_url_configured(config),
         "ledger_count": len(ledger),
         "last_issued": _last_issued(ledger),
         "default_valid_until": (date.today() + timedelta(days=30)).isoformat(),
@@ -135,9 +135,9 @@ def index():
 def qr_quality(config: dict) -> dict | None:
     """None when the redemption link is not set yet, so the template can tell
     the difference between 'not configured' and 'configured but too dense'."""
-    if not core.redeem_url_configured(config):
+    if not core.qr_url_configured(config):
         return None
-    return core.qr_quality(core.redeem_url(config))
+    return core.qr_quality(core.qr_url(config))
 
 
 def _last_issued(ledger: list[dict]) -> str:
@@ -423,8 +423,8 @@ def generate():
         valid_until=core.format_uk_date(valid_until),
         event_date=core.format_uk_date(event_date),
         issued_by=issued_by,
-        redeem_ready=core.redeem_url_configured(config),
-        redeem_url=core.redeem_url(config),
+        qr_ready=core.qr_url_configured(config),
+        qr_url=core.qr_url(config),
     )
 
 
@@ -483,8 +483,8 @@ def ledger_csv():
 def health():
     config = core.load_config()
     return jsonify({
-        "redeem_url_configured": core.redeem_url_configured(config),
-        "redeem_url": core.redeem_url(config),
+        "qr_url_configured": core.qr_url_configured(config),
+        "qr_url": core.qr_url(config),
         "qr": qr_quality(config),
         "vouchers_issued": len(core.read_ledger()),
         "pool": core.pool_status(),
