@@ -1,7 +1,7 @@
 {# One voucher. Used by the print sheet, the single-voucher PDFs and the vendor
    instruction sheet, so there is only ever one definition of the artwork. #}
 
-{% macro voucher(v, cfg, qr, logos) %}
+{% macro voucher(v, cfg, logos) %}
 <div class="voucher">
 
   <div class="v-head">
@@ -24,19 +24,6 @@
   </div>
 
   <div class="v-mid">
-    <div class="v-qr">
-      <div class="qr-box">
-        {% if qr %}
-          {{ qr|safe }}
-        {% else %}
-          <div class="qr-missing">QR code not set up yet</div>
-        {% endif %}
-      </div>
-      <div class="v-qr-label">{{ cfg.qr_label }}</div>
-      {# No point telling anybody to scan while the box is empty. #}
-      {% if qr %}<div class="v-qr-sub">{{ cfg.qr_instruction }}</div>{% endif %}
-    </div>
-
     <div class="v-where">
       <div class="v-where-intro">{{ cfg.venue_intro }}</div>
       <ul class="v-venues">

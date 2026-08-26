@@ -1,7 +1,11 @@
 # DMU Food & Drink vouchers
 
-One app on the office computer. Drop the approval CSV in, get print-ready
-vouchers out. Nothing leaves the machine.
+Drop the approval CSV in, get print-ready vouchers out.
+
+Vouchers are made **on the site**, behind one password. The same code runs on
+the office computer from `run.bat`, which is how the vendor sheet's picture gets
+remade and how anything is tried out before it goes up, but vouchers are issued
+in one place only, so that one ledger holds every number ever printed.
 
 ```
 approval CSV  ->  the app  ->  printed vouchers
@@ -14,11 +18,14 @@ approval CSV  ->  the app  ->  printed vouchers
 
 ## Running it
 
-**Windows:** double-click `run.bat`
-**Mac:** double-click `run.command`
+**The site.** Open it and type the password. That is where vouchers are made.
+Setting it up is under "On the server" below.
 
-A black window opens and your browser goes to the app. Leave the black window
-open while you use it, and close it when you are done.
+**The office computer,** for previewing and for remaking the vendor sheet's
+picture. Double-click `run.bat` on Windows or `run.command` on Mac. A black
+window opens and your browser goes to the app. Leave it open while you use it,
+and close it when you are done. Do not issue real vouchers from here: see the
+warning at the end.
 
 ## Making vouchers
 
@@ -59,18 +66,18 @@ the app checks to make sure a number is never issued twice.
 lines, and `qr_url`, which is the address the QR code opens. Save the file and
 reload the page in the browser. Nothing else needs touching.
 
-`qr_url` is currently a placeholder, so **vouchers print with an empty QR box.**
-That is fine for checking the layout and not for issuing. Put the Microsoft Form
-address in when the form exists.
+**There is no QR code on a voucher.** The code is the same for all 500 of them,
+so printing it 500 times was waste and the vendor bookmarks the page after one
+scan anyway. It is printed once, at 45mm, on `Vendor instructions.pdf`. If
+`qr_url` is still a placeholder, that sheet prints with a note where the code
+should be; the vouchers themselves are unaffected.
 
-Keep that address short. It is the whole content of the QR code and a long one
-prints too fine to scan. In Microsoft Forms, open **Collect responses** and copy
-the short `forms.office.com/r/` link rather than the long `ResponsePage.aspx`
-one. The app warns you if it has gone too far: below about 0.5mm per square,
-phone cameras start losing it on ordinary office paper.
-
-`vendor_record` is the one line on the vendor sheet that tells vendors what to do
-with the number. Put the form address in there too when you have it.
+The address does **not** need shortening. On an A4 sheet the code gets 45mm
+rather than the 27mm a voucher could spare, which takes the long
+`ResponsePage.aspx` link to 0.92mm per square against a floor of about 0.5mm,
+below which phone cameras start losing it on ordinary office paper. The app
+tells you the figure on the front page and warns you if a link ever does go too
+far.
 
 ## Logos
 
@@ -78,12 +85,40 @@ Drop `dmu-logo.png` and `food-and-drink-logo.png` into the `assets` folder and
 the vouchers will use them. Until then the header uses a plain text stand-in, so
 the tool still works without them.
 
+**After adding the logos, run `make_sample_thumbnail.py`** (see below). The
+vouchers pick the logos up on their own; the picture on the vendor sheet does
+not, because it is a photograph.
+
+## The picture on the vendor sheet
+
+The handout shows an example of what a voucher looks like. That picture is a PNG
+in `static`, taken once by `make_sample_thumbnail.py`, not the live artwork
+shrunk down on the page. It has to be a picture: the server renders with
+WeasyPrint, which keeps a shrunken voucher's full layout size and paginates the
+bottom of it away, so the drawn version came out with an empty voucher-number
+box. A picture renders the same in both engines.
+
+Run it on the office computer, which is the one with Chromium:
+
+```
+python make_sample_thumbnail.py
+```
+
+Then commit `static/sample-voucher.png` and `static/sample-voucher.json`, or the
+server keeps the old picture.
+
+Run it again after anything that changes how a voucher looks: `voucher.css`,
+`_voucher.html`, the voucher wording in `config.json`, or the logos. **You do not
+have to remember.** The app fingerprints all of those, and the front page tells
+you when the picture no longer matches, as does `check_pdf_engine.py`. The
+vouchers themselves are never affected, only the example on the handout.
+
 ---
 
 ## The voucher numbers
 
-The QR code is **the same on every voucher**. What says which voucher is which is
-the number printed in the red box:
+There is no QR code on a voucher, so the number printed in the red panel is the
+**only** thing that says which voucher this is:
 
 ```
 DMU-482-173-906
@@ -126,8 +161,56 @@ own if you need to look closer.
 **A failed run leaves nothing behind.** Numbers are written to the ledger only
 after the PDFs exist, so a run that falls over has nothing to undo.
 
-**Do not run the app on two machines at once.** The ledger is a single file in
-Dropbox, and two copies appending to it at the same time is how it gets damaged.
+**Do not issue vouchers from the office copy.** The site keeps its own ledger,
+on the server, and the two cannot see each other: a number issued here is
+invisible to the check that stops the site printing the same one again.
+Previewing and `make_sample_thumbnail.py` are both safe, because neither writes
+to a ledger.
+
+## On the server
+
+The site is this same app with three things set: a password, a data folder
+outside the repository, and WeasyPrint in place of Chromium. All three are read
+by `wsgi.py`, which is the file PythonAnywhere loads.
+
+**Setting it up**
+
+1. **Get the code there.** Clone or upload the folder to
+   `/home/YOURNAME/dmu-vouchers`.
+2. **Install what it needs.** In a Bash console,
+   `pip3.10 install --user -r requirements-server.txt`. No Playwright: Chromium
+   is 427 MB against a free account's 512 MB.
+3. **Point the web app at it.** Web tab, WSGI configuration file, replace what
+   is in it with the two lines at the top of `wsgi.py`.
+4. **Set the password.** Copy `.env.example` to `.env` in the same folder and
+   fill in `DMU_SITE_PASSWORD`. That file is gitignored and never leaves the
+   server. There is **no Environment variables section** in the Web tab, whatever
+   older notes in this repository claimed.
+5. **Carry the ledger over.** Upload `Ledger\issued_vouchers.csv` to
+   `~/dmu-voucher-data/Ledger/issued_vouchers.csv`. Miss this step and the site
+   starts from an empty record, which means it can reissue a number that has
+   already been printed.
+6. **Press Reload.** Nothing takes effect until you do. This is the step that
+   looks like "the change did not work".
+
+**Deploying a change**
+
+Pull or upload the changed files, then press Reload. The records live in
+`~/dmu-voucher-data`, deliberately outside the repository folder, so a deploy
+cannot take the ledger with it.
+
+**What is different up there**
+
+- One password prompt in front of everything. With `DMU_SITE_PASSWORD` unset the
+  app serves nothing at all, rather than serving an open voucher printer to
+  whoever finds the address.
+- Finished batches come down as a zip, because there is no folder to open.
+  Download them and keep them: the copy on the server is not a backup.
+- PDFs are drawn by WeasyPrint rather than Chromium, from the same HTML and CSS.
+  Check the first print sheet against a local one before a real print run.
+- The vendor sheet's example picture cannot be remade there, because that needs
+  Chromium. Run `make_sample_thumbnail.py` on the office computer and deploy the
+  PNG it makes.
 
 ## Files
 
@@ -137,7 +220,14 @@ app.py                  the web pages and the CSV drop
 vouchers.py             voucher logic, PDF output
 refs.py                 the number scheme and the check digit
 config.json             wording, venues, the QR link
+wsgi.py                 what the server loads, and what configures it
+.env.example            copy to .env on the server: the password lives there
+requirements-server.txt what to install on the server
 check_pdf_engine.py     tests PDF output when it will not work
+make_sample_thumbnail.py  remakes the vendor sheet's example picture
+static/
+  voucher.css           how a voucher looks, screen and print alike
+  sample-voucher.png    the example picture on the vendor sheet
 Ledger/
   issued_vouchers.csv   the record of everything issued
 Output/                 a folder per batch

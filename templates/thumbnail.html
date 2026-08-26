@@ -1,0 +1,19 @@
+<!doctype html>
+{# The voucher on its own, at its real size, so it can be photographed for the
+   vendor sheet's "what a voucher looks like" picture. Nothing else on the page:
+   the screenshot is cropped to the .voucher element itself. #}
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>Sample voucher</title>
+  <style>{{ css|safe }}</style>
+  <style>
+    html, body { background: #fff; margin: 0; padding: 0; }
+    .shot-stage { width: 97mm; height: 91mm; }
+  </style>
+</head>
+<body>
+{% from "_voucher.html" import voucher %}
+<div class="shot-stage">{{ voucher(specimen, cfg, logos) }}</div>
+</body>
+</html>

@@ -11,7 +11,7 @@
 {% for page in pages %}
   <div class="sheet">
     {% for v in page %}
-      <div class="cell">{{ voucher(v, cfg, qr, logos) }}</div>
+      <div class="cell">{{ voucher(v, cfg, logos) }}</div>
     {% endfor %}
     {% for _ in range(per_page - page|length) %}
       <div class="cell empty"></div>

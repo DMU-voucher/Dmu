@@ -21,16 +21,24 @@
 <div class="wrap">
 
   <div class="ok-note">
-    <strong>Done.</strong> The files are in the folders below, inside the
-    <code>Output</code> folder next to this app. Every voucher code has been
-    written to the log so the same code is never issued twice.
+    <strong>Done.</strong>
+    {% if hosted %}
+      Download each batch below and keep it somewhere of your own: the copy on
+      the server is not a backup. Every voucher code has been written to the log
+      so the same code is never issued twice.
+    {% else %}
+      The files are in the folders below, inside the <code>Output</code> folder
+      next to this app. Every voucher code has been written to the log so the
+      same code is never issued twice.
+    {% endif %}
   </div>
 
   {% if not qr_ready %}
     <div class="warn">
-      <strong>These vouchers have an empty QR box.</strong>
+      <strong>The vendor instruction sheet has no QR code on it.</strong>
       The Microsoft Form address is still missing from <code>config.json</code>.
-      Use these for checking the layout only, then make them again once it is in.
+      The vouchers themselves are fine to issue, but the vendor has no way to
+      reach the form, so put the address in and make the vendor sheet again.
     </div>
   {% endif %}
 
@@ -53,13 +61,19 @@
           <dt>Individual PDFs</dt>
           <dd>{{ r.singles }}, in the <code>Individual</code> folder, named by voucher code</dd>
         {% endif %}
-        <dt>Folder</dt>
-        <dd class="path">{{ r.folder }}</dd>
+        {% if not hosted %}
+          <dt>Folder</dt>
+          <dd class="path">{{ r.folder }}</dd>
+        {% endif %}
       </dl>
       <div class="actions">
-        <form method="post" action="{{ url_for('open_folder') }}">
+        <form method="post" action="{{ url_for('download_batch' if hosted else 'open_folder') }}">
           <input type="hidden" name="folder" value="{{ r.folder }}">
-          <button class="secondary" type="submit">Open the folder</button>
+          {% if hosted %}
+            <button class="primary" type="submit">Download everything (.zip)</button>
+          {% else %}
+            <button class="secondary" type="submit">Open the folder</button>
+          {% endif %}
         </form>
       </div>
     </div>

@@ -1,0 +1,11 @@
+# What the hosted copy needs. The office machine installs its own from run.bat,
+# which adds Playwright and Chromium on top of these.
+#
+#   pip3.10 install --user -r requirements-server.txt
+#
+# No Playwright here on purpose: Chromium is 427 MB against a free account's
+# 512 MB, so the server draws PDFs with WeasyPrint instead.
+flask
+segno
+pymupdf
+weasyprint

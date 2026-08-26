@@ -10,11 +10,10 @@
 {% from "_voucher.html" import voucher %}
 {% for v in vouchers %}
   <div class="single-page">
-    <div class="single-stage">{{ voucher(v, cfg, qr, logos) }}</div>
+    <div class="single-stage">{{ voucher(v, cfg, logos) }}</div>
     <div class="single-note">
-      Show this voucher on your phone or print it, then hand it to the vendor.
-      The QR code is for the vendor to scan when they redeem it, so please do not
-      scan it yourself.
+      Print this voucher and hand the paper to the vendor. The vendor keeps it,
+      so a photograph or a screen cannot be accepted in its place.
     </div>
   </div>
 {% endfor %}

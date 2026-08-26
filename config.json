@@ -1,16 +1,12 @@
 {
   "_comment": "Everything the wording or the link might need changing to lives in this file. Edit it in Notepad, save, then reload the app in the browser. No need to touch any other file.",
-  "_qr_url": "The address of the Microsoft Form the vendor's phone opens when they scan. The same QR code goes on every voucher, so this is the only link involved. Use the short forms.office.com/r/ link that Forms offers under Collect responses, not the long ResponsePage.aspx one: a long address makes the QR print too fine to scan. Left as the placeholder text below, vouchers print with an empty QR box, which is fine for checking the layout but not for issuing.",
+  "_qr_url": "The address of the Microsoft Form the vendor records vouchers in. The QR code for it is printed on Vendor instructions.pdf, not on the vouchers: the same code serves every voucher, so the vendor keeps one copy by the till. Printed at 45mm on that sheet, a long ResponsePage address is perfectly scannable, so there is no need to shorten it. Left as placeholder text, the vendor sheet prints with a note in place of the code.",
   "qr_url": "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=48B4T1DS3027HBXTFFaXzNpH91VJa8dOn_9IM3XVRntUMEpOSEs1MVg2WDBMM1dBQUFZQ0pKU001Vy4u",
-  "_vendor_record": "What the vendor sheet tells vendors to do with the number. Once the Microsoft Form exists, put its address in here. Left empty, the sheet tells them their DMU contact will say where.",
-  "vendor_record": "Scan the QR code on the voucher, or open the form you have bookmarked, and enter the number there.",
   "venues": [
     "Saints of Mokha",
     "Devorer Street Vendor (outside Monty's)"
   ],
   "voucher_title": "Food & Drink Voucher",
-  "qr_label": "Vendor use only",
-  "qr_instruction": "Scan, then type the number",
   "reference_label": "Voucher number",
   "holder_instruction": "Hand this voucher to the vendor to redeem.",
   "venue_intro": "Redeemable only at:",

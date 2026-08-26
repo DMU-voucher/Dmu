@@ -15,18 +15,39 @@
   <p class="lede">
     De Montfort University issues these paper vouchers to attendees at university
     events. They are redeemable with you. This page explains what to do when one
-    is handed over. There is no password and nothing to sign in to.
+    is handed over.
   </p>
 
-  <h2>When a customer hands you a voucher</h2>
+  <h2>First, before your first customer</h2>
+  <div class="vendor-qr-row">
+    <div class="vendor-qr">
+      {% if qr %}
+        <div class="vendor-qr-box">{{ qr|safe }}</div>
+      {% else %}
+        <div class="vendor-qr-box vendor-qr-missing">
+          The form address has not been set up yet
+        </div>
+      {% endif %}
+    </div>
+    <div class="vendor-qr-words">
+      <p><strong>Scan this code once and bookmark the page it opens.</strong>
+        It is the form where you record every voucher you take. The code is not
+        on the vouchers themselves, so this sheet is the only place you will
+        find it. Keep it by the till.</p>
+      <p class="vendor-qr-note">Any phone camera will do. Nothing to install,
+        no password, no account.
+        {% if cfg.qr_url %}<br>If the code will not scan, the address is
+        <span class="mono tiny">{{ cfg.qr_url }}</span>{% endif %}</p>
+    </div>
+  </div>
+
+  <h2>Then, when a customer hands you a voucher</h2>
   <ol class="steps">
     <li><strong>Check the voucher.</strong> The "valid until" date has not
       passed, the number in the red box is there and readable, and the value is
       the one printed in large type at the top.</li>
-    <li><strong>Write the number down or enter it</strong>, for example
-      <span class="mono">{{ sample.code }}</span>.
-      {% if cfg.vendor_record %}{{ cfg.vendor_record }}{% else %}Your DMU
-      contact will tell you where to record it.{% endif %}</li>
+    <li><strong>Open the form</strong> from your bookmark and enter the voucher
+      number, for example <span class="mono">{{ specimen.code }}</span>.</li>
     <li><strong>Serve the order</strong> up to the value shown on the
       voucher.</li>
   </ol>
@@ -38,7 +59,7 @@
     will catch it.
   </div>
 
-  <div class="callout">
+  <div class="callout secondary">
     <strong>If the order comes to less than the voucher value</strong>, no change
     or cash is given, and the difference is not carried over.
     <strong>If it comes to more</strong>, the customer pays the difference
@@ -60,12 +81,23 @@
 
   <h2>What a voucher looks like</h2>
   <div class="vendor-sample">
-    <div class="sample-stage">{{ voucher(sample, cfg, qr, logos) }}</div>
+    {# The picture is made once by make_sample_thumbnail.py, because WeasyPrint
+       cannot draw the live artwork shrunk by CSS without losing the number
+       panel. If it has not been made yet, fall back to the live artwork: that
+       is correct under Chromium and only imperfect on the server. #}
+    {% if thumbnail %}
+      <img class="sample-shot" src="{{ thumbnail }}"
+           alt="An example DMU Food &amp; Drink voucher">
+    {% else %}
+      <div class="sample-stage">{{ voucher(specimen, cfg, logos) }}</div>
+    {% endif %}
     <div class="sample-note">
-      <strong>This is an example only.</strong> A real voucher carries its own
-      number in the red box and its own "valid until" date, and a real number
-      never starts 000. The value may differ from event to event, so always read
-      the value printed on the voucher in front of you.
+      <strong>This is an example only.</strong> There is no QR code on a
+      voucher: the only code is the one on this sheet. A real voucher carries
+      its own number in the red box and a real date where this one says
+      "{{ cfg.valid_until_label }} DD Month YYYY", and a real number never
+      starts 000. The value may differ from event to event, so always read the
+      value printed on the voucher in front of you.
     </div>
   </div>
 

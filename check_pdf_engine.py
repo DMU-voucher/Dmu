@@ -30,6 +30,15 @@ def main() -> int:
         print(f"    {name:12} {state}")
 
     config = core.load_config()
+
+    state = core.thumbnail_state(config)
+    print()
+    print(f"  Vendor sheet's voucher picture: {state}")
+    if state != "ready":
+        print("    Run make_sample_thumbnail.py. Until then the vendor sheet")
+        print("    falls back to CSS-scaled artwork, which WeasyPrint prints")
+        print("    with an empty voucher-number panel.")
+
     url_ok = core.qr_url_configured(config)
     print()
     print(f"  QR link configured: {url_ok}")
@@ -52,7 +61,7 @@ def main() -> int:
     with generator.app.test_request_context():
         sheet_html = generator.render_sheet(vs, config, "Engine check")
         singles_html = generator.render_singles(vs, config, "Engine check")
-        vendor_html = generator.render_vendor_sheet(vs[0], config)
+        vendor_html = generator.render_vendor_sheet(config)
 
     OUT.mkdir(parents=True, exist_ok=True)
     jobs = [("sheet", sheet_html), ("singles", singles_html), ("vendor", vendor_html)]
@@ -76,7 +85,10 @@ def main() -> int:
     print()
     print(f"  PDFs written to {OUT}")
     print("  Open sheet.pdf and check: six vouchers to a page, dashed cut lines,")
-    print("  the QR square solid black, and nothing overlapping or clipped.")
+    print("  the voucher number large and centred in its red panel, and nothing")
+    print("  overlapping or clipped. Then open vendor.pdf and check it is one")
+    print("  page, with the QR square solid black and the fallback address")
+    print("  wrapped inside its border.")
     print()
     return 0
 

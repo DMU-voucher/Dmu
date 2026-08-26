@@ -4,14 +4,25 @@
    Sizes are in mm and pt on purpose: this artwork gets cut out with scissors,
    so the units need to mean something physical. */
 
+/* DMU's own palette, read off dmu.ac.uk rather than approximated. Their red is
+   deeper than the one this artwork used, their body text is pure black rather
+   than a soft near-black, and they carry a purple and a navy alongside the red.
+
+   --fd-orange is deliberately not one of these. It belongs to the Food & Drink
+   sub-brand, which is a different mark with a different palette. */
+
 :root {
-  --dmu-red: #a6192e;
-  --dmu-red-dark: #7c1322;
+  --dmu-red: #9d0932;
+  --dmu-red-dark: #6d0623;
+  --dmu-purple: #823297;
+  --dmu-navy: #172754;
   --fd-orange: #f07f1a;
-  --ink: #1a1a1a;
-  --ink-soft: #4a4a4a;
+  --ink: #000;
+  --ink-soft: #666;
   --rule: #c9c9c9;
   --cut: #b8b8b8;
+  /* The palest tint of the red that still prints as a tint and not as white. */
+  --red-wash: #faf1f4;
 }
 
 @page {
@@ -26,7 +37,11 @@ html, body {
   padding: 0;
   background: #fff;
   color: var(--ink);
-  font-family: "Segoe UI", Tahoma, Arial, Helvetica, sans-serif;
+  /* Geist is DMU's own face and is not installed here, so this falls through to
+     Segoe UI. That matters for weight 300: segoeuil.ttf is a real Segoe UI
+     Light, so a light weight is drawn rather than synthesised from the regular.
+     Drop a Geist into the font folder and the artwork upgrades on its own. */
+  font-family: Geist, "Segoe UI", Tahoma, Arial, Helvetica, sans-serif;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -116,13 +131,14 @@ html, body {
   letter-spacing: 0.01em;
 }
 
+/* Sentence case, weight carrying the emphasis. DMU set no uppercase anywhere
+   on their own material, and the four rules that did it here were the single
+   loudest thing making this artwork read as a generic form. */
 .dmu-lockup span {
   display: block;
   font-size: 5.2pt;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink-soft);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 /* Value strip. The one thing that has to read at arm's length. */
@@ -134,130 +150,71 @@ html, body {
   gap: 2mm;
 }
 
+/* Large, light and tight is DMU's display signature, so the value is set the
+   way they set a headline rather than the way a form sets a total. */
 .v-value {
-  font-size: 21pt;
-  font-weight: 700;
+  font-size: 24pt;
+  font-weight: 300;
   line-height: 1;
   color: var(--dmu-red);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
 }
 
 .v-title {
-  font-size: 7pt;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
+  font-size: 7.5pt;
+  font-weight: 700;
   color: var(--ink-soft);
   text-align: right;
 }
 
-/* Middle: QR on the left, where it can be redeemed on the right. Both columns
-   stretch to fill whatever height is left over between the value and the foot,
-   so there is no dead band in the middle of the voucher. */
+/* Middle: where the voucher can be redeemed.
+
+   This was two columns, a QR box and the venues. The QR has gone to the vendor
+   sheet, so this is now the venues alone and it takes only the height it needs.
+   It must not stretch: stretching is what left a band of white where the code
+   used to be. The slack goes to the voucher number in the foot instead. */
 
 .v-mid {
   display: flex;
   gap: 3mm;
-  flex: 1 1 auto;
-  min-height: 0;
-  align-items: stretch;
+  flex: 0 0 auto;
 }
 
-/* Fixed at the width of the QR box. The captions underneath must wrap inside
-   that width rather than spilling towards the venue column, so the whole block
-   stays visually attached to the code it labels however the wording is
-   reworded in config.json. */
-.v-qr {
-  flex: 0 0 29mm;
-  width: 29mm;
-  min-width: 0;
-  max-width: 29mm;
+/* The voucher number. There is no code on the artwork at all now, so this is
+   the only thing that identifies this particular voucher, and a vendor keys it
+   in off the paper with a queue waiting. So it takes the space the QR code
+   vacated: a stacked block, label over number, centred, and the only thing on
+   the voucher that grows to fill whatever height is left over.
+
+   Monospace so 8 and B cannot be confused, and the positive tracking stays:
+   this one is read a character at a time, not as a word. */
+
+.v-ref-strip {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.8mm;
-  overflow-wrap: break-word;
-}
-
-.qr-box {
-  width: 29mm;
-  height: 29mm;
-  padding: 1mm;
-  border: 0.25mm solid var(--rule);
-  border-radius: 0.8mm;
-  background: #fff;
-}
-
-.qr-box svg,
-.qr-box .qr-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  shape-rendering: crispEdges;
-}
-
-.qr-missing {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  text-align: center;
-  font-size: 5.5pt;
-  font-weight: 600;
-  color: var(--dmu-red);
-  border: 0.3mm dashed var(--dmu-red);
-  border-radius: 0.6mm;
-  padding: 1mm;
-  line-height: 1.2;
-}
-
-.v-qr-label {
-  font-size: 5.8pt;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--dmu-red);
-  text-align: center;
-  line-height: 1.15;
-}
-
-.v-qr-sub {
-  font-size: 5.2pt;
-  color: var(--ink-soft);
-  text-align: center;
-  line-height: 1.2;
-}
-
-/* The voucher number. One QR code serves the whole run, so this is the only
-   thing on the artwork that identifies this particular voucher, and a vendor
-   has to key it in off the paper with a queue waiting. Full width of the
-   voucher, monospace so 8 and B cannot be confused, and set as large as the
-   foot will carry. */
-
-.v-ref-strip {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 2mm;
-  padding: 1.1mm 2mm;
+  gap: 0.8mm;
+  min-height: 13mm;
+  padding: 2mm;
   border: 0.3mm solid var(--dmu-red);
   border-radius: 0.8mm;
-  background: #fdf4f5;
+  background: var(--red-wash);
+  text-align: center;
 }
 
 .v-ref-label {
-  font-size: 5.2pt;
+  font-size: 7pt;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--dmu-red);
   white-space: nowrap;
+  line-height: 1;
 }
 
 .v-ref-number {
   font-family: Consolas, "Courier New", monospace;
-  font-size: 11pt;
+  font-size: 19pt;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--ink);
@@ -273,10 +230,8 @@ html, body {
 }
 
 .v-where-intro {
-  font-size: 6.6pt;
+  font-size: 7pt;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--ink-soft);
   margin-bottom: 0.8mm;
 }
@@ -315,13 +270,11 @@ html, body {
   line-height: 1.3;
 }
 
-/* Sits at the bottom of its column so the voucher has no dead band. */
 .v-action {
   font-size: 7.8pt;
   font-weight: 600;
   line-height: 1.3;
   padding: 1.5mm 1.8mm;
-  margin-top: auto;
   background: #f6f6f6;
   border-left: 0.8mm solid var(--fd-orange);
   border-radius: 0.4mm;
@@ -335,6 +288,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.8mm;
+  flex: 1 1 auto;
 }
 
 .v-dates {
@@ -371,6 +325,14 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 60mm;
+}
+
+/* The money rules and the offline fallback, which are advice rather than a
+   warning, so purple rather than a second orange callout shouting alongside
+   the first. */
+.callout.secondary {
+  background: #f8f2fa;
+  border-left-color: var(--dmu-purple);
 }
 
 /* ------------------------------------------------- single voucher page ---- */
@@ -412,33 +374,53 @@ html, body {
 /* --------------------------------------------------- vendor instructions --- */
 
 /* Sized to land on a single A4 page: this gets handed over on the day, and a
-   second sheet would get separated from the first. */
+   second sheet would get separated from the first.
+
+   That is a real constraint and it is tight. The 45mm code alone is a fifth of
+   the page, so everything else on the sheet is set at handout density rather
+   than at reading-a-report density.
+
+   The slack has to survive a change of font, not just a change of wording. The
+   server renders with WeasyPrint on Debian, which has none of the faces in the
+   stack above, so it falls through to DejaVu Sans and DejaVu Sans Mono. Both
+   are appreciably wider than Segoe UI and Consolas, and the tallest variable
+   block on the sheet is the wrapped 137-character URL, which is monospace. So
+   this is sized for the wide case. Measured under WeasyPrint: 17.0mm spare with
+   Segoe UI and Consolas, 5.9mm spare with Verdana and Courier New standing in
+   for the DejaVus. Verdana is wider than DejaVu Sans, so the real server figure
+   is better than 5.9mm. Before this was sized for the wide case it had 0.2mm and
+   fitted on luck. If you add a section here, check the page count with a wide
+   font, not just with the one on your own machine. */
 
 .vendor-page {
   width: 210mm;
   height: 297mm;
-  padding: 13mm 17mm;
+  padding: 8mm 15mm;
   display: flex;
   flex-direction: column;
 }
 
 .vendor-page h1 {
-  font-size: 18pt;
-  margin: 0 0 1.5mm;
+  font-size: 15pt;
+  margin: 0 0 1.2mm;
   color: var(--dmu-red);
 }
 
 .vendor-page .lede {
-  font-size: 10.5pt;
+  font-size: 9.5pt;
   color: var(--ink-soft);
-  margin: 0 0 5mm;
-  line-height: 1.4;
+  margin: 0 0 4mm;
+  line-height: 1.35;
 }
 
+/* Navy for the section headings, so the sheet is not red on red throughout.
+   Red stays for the one thing that is urgent, which is the code panel. */
 .vendor-page h2 {
-  font-size: 11.5pt;
-  margin: 5mm 0 2.5mm;
-  padding-bottom: 1.2mm;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: var(--dmu-navy);
+  margin: 3.5mm 0 2mm;
+  padding-bottom: 1mm;
   border-bottom: 0.3mm solid var(--rule);
 }
 
@@ -446,9 +428,9 @@ html, body {
 
 .steps li {
   position: relative;
-  padding: 0 0 3.2mm 11mm;
-  font-size: 10.5pt;
-  line-height: 1.4;
+  padding: 0 0 2mm 10mm;
+  font-size: 9.8pt;
+  line-height: 1.35;
 }
 
 .steps li::before {
@@ -456,14 +438,14 @@ html, body {
   content: counter(step);
   position: absolute;
   left: 0;
-  top: -0.3mm;
-  width: 7.5mm;
-  height: 7.5mm;
+  top: -0.2mm;
+  width: 6.8mm;
+  height: 6.8mm;
   border-radius: 50%;
   background: var(--fd-orange);
   color: #fff;
   font-weight: 700;
-  font-size: 10.5pt;
+  font-size: 9.8pt;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -472,40 +454,40 @@ html, body {
 .vendor-page .mono {
   font-family: Consolas, "Courier New", monospace;
   font-weight: 700;
-  background: #fdf4f5;
+  background: var(--red-wash);
   border: 0.2mm solid var(--rule);
   border-radius: 0.5mm;
   padding: 0 0.8mm;
   white-space: nowrap;
 }
 
-.vendor-page ul.plain { margin: 0; padding-left: 6mm; font-size: 10pt; line-height: 1.45; }
-.vendor-page ul.plain li { margin-bottom: 1.4mm; }
+.vendor-page ul.plain { margin: 0; padding-left: 5mm; font-size: 9pt; line-height: 1.35; }
+.vendor-page ul.plain li { margin-bottom: 0.8mm; }
 
 .callout {
-  margin: 4mm 0 0;
-  padding: 3.2mm 4mm;
+  margin: 2.6mm 0 0;
+  padding: 2mm 3mm;
   background: #fdf3e8;
   border-left: 1.2mm solid var(--fd-orange);
   border-radius: 0.8mm;
-  font-size: 10pt;
-  line-height: 1.4;
+  font-size: 9.5pt;
+  line-height: 1.35;
 }
 
 .vendor-foot {
   margin-top: auto;
-  padding-top: 3.5mm;
+  padding-top: 3mm;
   border-top: 0.3mm solid var(--rule);
-  font-size: 8.5pt;
+  font-size: 8pt;
   color: var(--ink-soft);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .vendor-sample {
   display: flex;
-  gap: 6mm;
+  gap: 5mm;
   align-items: flex-start;
-  margin: 3mm 0 0;
+  margin: 2mm 0 0;
 }
 
 /* The sample is the real voucher artwork, shrunk, so it always matches what
@@ -514,26 +496,136 @@ html, body {
    overflow: hidden is load-bearing. transform shrinks the voucher visually but
    leaves its layout box at the full 97 x 91mm, and Chromium paginates on layout
    overflow, so without the clip the handout spills a sliver of voucher edge
-   onto a second page. Clipping costs nothing: the drawn artwork is 67.5mm tall
-   inside a 68mm stage. */
+   onto a second page. Clipping costs nothing under Chromium: the drawn artwork
+   is 31.85mm tall inside a 33.5mm stage.
+
+   KNOWN LIMITATION, WeasyPrint only, thumbnail only. On the server this
+   thumbnail prints with its red panel empty: the border and background draw,
+   the "Voucher number" label and the number inside them do not. The voucher's
+   layout box stays 97 x 91mm however far the transform shrinks it, and
+   WeasyPrint paginates the lower part of that box away rather than painting it.
+   Tried and did not fix it: position: absolute on the voucher, removing the
+   clip, zoom in place of transform, stopping the panel growing here, and moving
+   the block up the page. Chromium is correct, so vouchers made on the office
+   machine are unaffected, and no real voucher is affected either way: this is
+   the illustration on the handout, not the artwork.
+
+   So the sheet does not use this any more: make_sample_thumbnail.py photographs
+   the artwork once on a machine with Chromium and vendor.html draws that PNG
+   instead, which both engines render identically. What follows is the fallback
+   for when the picture has not been made yet. */
 .vendor-sample .sample-stage {
-  flex: 0 0 72mm;
-  height: 68mm;
+  flex: 0 0 34.5mm;
+  height: 33.5mm;
   overflow: hidden;
 }
 
 .vendor-sample .voucher {
   width: 97mm;
   height: 91mm;
-  transform: scale(0.742);
+  transform: scale(0.35);
   transform-origin: top left;
+}
+
+/* The picture. Sized by width so the artwork's own proportions decide the
+   height, rather than trusting two engines to agree on a rounded mm. */
+.vendor-sample .sample-shot {
+  flex: 0 0 34.5mm;
+  width: 34.5mm;
+  height: auto;
+  display: block;
+  align-self: flex-start;
 }
 
 .vendor-sample .sample-note {
   flex: 1 1 auto;
-  font-size: 9.5pt;
+  font-size: 9pt;
   color: var(--ink-soft);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .vendor-sample .sample-note strong { color: var(--ink); }
+
+
+/* ------------------------------------------------- the vendor sheet's code ---
+
+   The one QR code in the whole system. It is identical for every voucher, so
+   printing it 500 times on the vouchers was waste; it belongs with the vendor,
+   once, at a size that scans. 45mm against the 27mm it used to get on a
+   voucher takes a 137-character form link from 0.55mm per square to 0.92mm,
+   which is the difference between "usually works" and "works off a bad photo
+   of a creased page". */
+
+.vendor-qr-row {
+  display: flex;
+  gap: 6mm;
+  align-items: center;
+  margin-bottom: 4mm;
+  padding: 3mm;
+  border: 0.4mm solid var(--dmu-red);
+  border-radius: 1.5mm;
+  background: var(--red-wash);
+}
+
+.vendor-qr { flex: 0 0 auto; }
+
+/* 49.5mm outer = 45mm of QR modules + 2mm white quiet zone each side +
+   0.25mm border each side. QR_DRAWN_MM in vouchers.py is the 45mm, so the
+   reported millimetres per square describe what actually reaches the paper.
+   Change one of these two numbers and you have to change the other. */
+.vendor-qr-box {
+  width: 49.5mm;
+  height: 49.5mm;
+  padding: 2mm;
+  background: #fff;
+  border: 0.25mm solid var(--rule);
+  border-radius: 0.8mm;
+}
+
+.vendor-qr-box svg,
+.vendor-qr-box .qr-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  shape-rendering: crispEdges;
+}
+
+.vendor-qr-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--dmu-red);
+  border: 0.4mm dashed var(--dmu-red);
+  padding: 3mm;
+  line-height: 1.3;
+}
+
+.vendor-qr-words { flex: 1 1 auto; min-width: 0; }
+
+.vendor-qr-words p {
+  margin: 0 0 2mm;
+  font-size: 10pt;
+  line-height: 1.4;
+}
+
+.vendor-qr-words p:last-child { margin-bottom: 0; }
+
+.vendor-qr-note {
+  font-size: 9pt !important;
+  color: var(--ink-soft);
+}
+
+/* A 137-character URL has to wrap wherever it can or it runs off the page.
+   white-space is the load-bearing line: .vendor-page .mono sets nowrap, which
+   beats overflow-wrap no matter how hard the latter asks. */
+.vendor-page .mono.tiny {
+  display: block;
+  margin-top: 0.8mm;
+  font-size: 7.5pt;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}

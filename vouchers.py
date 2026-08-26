@@ -7,6 +7,7 @@ on its own. The app layer only handles the browser side of things.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import os
@@ -21,10 +22,22 @@ import segno
 import refs
 
 APP_DIR = Path(__file__).resolve().parent
+
+# Everything the app writes lives under here: the ledger, the finished batches,
+# the uploaded CSVs. On a server point DMU_DATA_DIR at a folder OUTSIDE the
+# repository, or deploying a new version takes the record of every voucher ever
+# issued with it. Unset, which is how the office machine runs, it all sits next
+# to the app exactly as it always has.
+DATA_DIR = Path(os.environ.get("DMU_DATA_DIR") or APP_DIR)
+
 CONFIG_PATH = APP_DIR / "config.json"
-LEDGER_PATH = APP_DIR / "Ledger" / "issued_vouchers.csv"
-OUTPUT_DIR = APP_DIR / "Output"
+LEDGER_PATH = DATA_DIR / "Ledger" / "issued_vouchers.csv"
+OUTPUT_DIR = DATA_DIR / "Output"
 ASSETS_DIR = APP_DIR / "assets"
+
+# The loose copy of the vendor sheet, refreshed after every run so the current
+# one is always to hand without digging through Output.
+LOOSE_VENDOR_PDF = DATA_DIR / "Vendor instructions.pdf"
 
 PLACEHOLDER_QR_URL = "PASTE THE MICROSOFT FORM ADDRESS HERE"
 
@@ -386,10 +399,17 @@ def append_ledger(rows: list[dict]) -> None:
 # QR code
 # --------------------------------------------------------------------------
 
-# The QR box is 29mm square with 1mm padding, so 27mm of actual code. Below
-# roughly half a millimetre per module, toner spread on ordinary office paper
-# starts to defeat phone cameras, so we warn rather than let it go out.
-QR_DRAWN_MM = 27.0
+# The code is printed once, on the vendor instruction sheet, not on every
+# voucher. An A4 sheet has room for a big one, which is the whole reason it was
+# moved there: 45mm survives a bad phone photo and a heavy-handed printer.
+# Below roughly half a millimetre per module, toner spread on ordinary office
+# paper starts to defeat phone cameras, so we warn rather than let it go out.
+#
+# This is the width of the modules themselves, not of the box round them. In
+# voucher.css that is .vendor-qr-box at 49.5mm outer, which is this 45mm plus a
+# 2mm quiet zone and a hairline border on each side. The two numbers have to be
+# changed together or this reports a size the printer never draws.
+QR_DRAWN_MM = 45.0
 QR_MIN_MODULE_MM = 0.50
 
 
@@ -442,6 +462,83 @@ class Voucher:
     event_name: str
     valid_until: str
     event_date: str
+
+
+# --------------------------------------------------------------------------
+# The vendor sheet's specimen voucher and its thumbnail
+# --------------------------------------------------------------------------
+
+THUMBNAIL_PATH = APP_DIR / "static" / "sample-voucher.png"
+THUMBNAIL_STAMP = APP_DIR / "static" / "sample-voucher.json"
+
+# The picture on the vendor sheet is a PNG made once by a machine with Chromium,
+# not the live artwork shrunk by CSS. WeasyPrint keeps a transformed box's full
+# layout size and paginates the lower part of it away, which printed the
+# thumbnail with an empty voucher-number panel on the server while Chromium drew
+# it correctly. A picture renders identically in both.
+#
+# The cost is that the picture can go out of date, so thumbnail_fingerprint below
+# covers everything that changes what a voucher looks like and the app says so
+# when it no longer matches.
+
+# Not a real date. A pre-rendered image freezes whatever date it was made with,
+# and a handout printed months later would otherwise show a specimen that had
+# expired, on a sheet whose own rules say to refuse an expired voucher.
+SPECIMEN_VALID_UNTIL = "DD Month YYYY"
+
+
+def specimen_voucher() -> "Voucher":
+    """The example voucher the vendor sheet shows and quotes.
+
+    Fixed, and drawn from the same low numbers as any other preview, so the
+    number on the handout can never be one that was really issued to somebody.
+    """
+    return Voucher(
+        code=sample_references(1)[0],
+        value_display="£6.00",
+        event_name="Example event",
+        valid_until=SPECIMEN_VALID_UNTIL,
+        event_date="",
+    )
+
+
+# Everything that changes what a voucher looks like. Miss one of these out and
+# the handout quietly shows a picture of the old artwork.
+THUMBNAIL_INPUTS = ("static/voucher.css", "templates/_voucher.html",
+                    "templates/thumbnail.html")
+THUMBNAIL_CONFIG_KEYS = ("voucher_title", "reference_label", "holder_instruction",
+                         "venue_intro", "venues", "venue_warning",
+                         "valid_until_label", "small_print")
+
+
+def thumbnail_fingerprint(config: dict) -> str:
+    h = hashlib.sha256()
+    for rel in THUMBNAIL_INPUTS:
+        path = APP_DIR / rel
+        h.update(path.read_bytes() if path.is_file() else b"")
+    h.update(json.dumps({k: config.get(k) for k in THUMBNAIL_CONFIG_KEYS},
+                        sort_keys=True, ensure_ascii=False).encode("utf-8"))
+    h.update(SPECIMEN_VALID_UNTIL.encode("utf-8"))
+    # The logos are part of the artwork, so dropping one in makes the picture
+    # stale even though no file the app owns has changed.
+    for name in sorted(p.name for p in ASSETS_DIR.glob("*")
+                       if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"}):
+        h.update(name.encode("utf-8"))
+        h.update((ASSETS_DIR / name).read_bytes())
+    return h.hexdigest()[:16]
+
+
+def thumbnail_state(config: dict) -> str:
+    """'ready', 'stale' or 'missing'. 'stale' means the artwork has changed
+    since the picture was made, so the handout is showing the old design."""
+    if not THUMBNAIL_PATH.is_file():
+        return "missing"
+    try:
+        with open(THUMBNAIL_STAMP, encoding="utf-8") as fh:
+            stamped = json.load(fh).get("fingerprint", "")
+    except (OSError, ValueError):
+        return "stale"
+    return "ready" if stamped == thumbnail_fingerprint(config) else "stale"
 
 
 # --------------------------------------------------------------------------

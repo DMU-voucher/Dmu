@@ -13,7 +13,12 @@
     <span class="fd-tag">FOOD &amp; DRINK</span>
     <div>
       <h1>Voucher generator</h1>
-      <p>De Montfort University. Everything happens on this computer, nothing is uploaded.</p>
+      {% if hosted %}
+        <p>De Montfort University. Every voucher made here is written to the log,
+          which is what stops a number going out twice.</p>
+      {% else %}
+        <p>De Montfort University. Everything happens on this computer, nothing is uploaded.</p>
+      {% endif %}
     </div>
   </div>
 </header>
@@ -22,21 +27,42 @@
 
   {% if not qr_ready %}
     <div class="warn">
-      <strong>The QR code is not set up yet.</strong>
+      <strong>The form address is not set up yet.</strong>
       Open <code>config.json</code> in Notepad, put the address of the Microsoft
       Form in place of the placeholder, save, then reload this page. Until then
-      vouchers print with an empty QR box, which is fine for checking the layout
-      but not for issuing.
+      the vendor instruction sheet prints without its QR code, so vendors have
+      no way to reach the form. The vouchers themselves are unaffected.
+    </div>
+  {% endif %}
+
+  {% if thumbnail_state != 'ready' %}
+    <div class="warn">
+      {% if thumbnail_state == 'missing' %}
+        <strong>The vendor sheet has no picture of a voucher yet.</strong>
+        It falls back to drawing one, which is right on this computer but prints
+        with an empty voucher-number box on the server.
+      {% else %}
+        <strong>The picture on the vendor sheet is out of date.</strong>
+        A voucher no longer looks like the one in it, so the handout is showing
+        the old design.
+      {% endif %}
+      {% if hosted %}
+        Run <code>make_sample_thumbnail.py</code> on the office computer, which
+        is the one with Chromium, then deploy the picture it makes. The vouchers
+        themselves are unaffected either way.
+      {% else %}
+        Close the app, run <code>make_sample_thumbnail.py</code>, and start it
+        again. The vouchers themselves are unaffected either way.
+      {% endif %}
     </div>
   {% endif %}
 
   {% if qr and not qr.ok %}
     <div class="warn">
-      <strong>The link is long, so the QR code will print quite fine.</strong>
-      Each square comes out at {{ qr.module_mm }}mm, and below about 0.5mm phone
-      cameras start to struggle with printed toner. In Microsoft Forms, open
-      Collect responses and copy the short <code>forms.office.com/r/</code> link
-      rather than the long <code>ResponsePage.aspx</code> one.
+      <strong>The link is long enough that the QR code may not print well.</strong>
+      Each square comes out at {{ qr.module_mm }}mm on the vendor sheet, and
+      below about 0.5mm phone cameras start to struggle with printed toner. In
+      Microsoft Forms, open Collect responses and use the Shorten URL option.
     </div>
   {% endif %}
 

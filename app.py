@@ -9,13 +9,19 @@ Start it with run.bat (Windows) or run.command (Mac).
 from __future__ import annotations
 
 import base64
+import io
+import json
 import mimetypes
+import os
+import re
 import secrets
 import traceback
+import zipfile
+from dataclasses import asdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
-from flask import (Flask, abort, jsonify, render_template, request,
+from flask import (Flask, Response, abort, jsonify, render_template, request,
                    send_file, url_for)
 
 import vouchers as core
@@ -23,12 +29,59 @@ import vouchers as core
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # a CSV export is tiny
 
-UPLOADS_DIR = core.APP_DIR / "Uploads"
+UPLOADS_DIR = core.DATA_DIR / "Uploads"
+SESSIONS_DIR = core.DATA_DIR / "Sessions"
 CSS_PATH = core.APP_DIR / "static" / "voucher.css"
 
-# Parsed uploads waiting to be turned into vouchers. In memory only: closing the
-# app forgets them, which is what we want for a tool that gets run once a week.
-SESSIONS: dict[str, dict] = {}
+# Served on a public address rather than started with run.bat. Changes what the
+# pages say and how finished batches are collected: there is no folder to open
+# on a server, and nothing lands in Dropbox afterwards.
+HOSTED = os.environ.get("DMU_HOSTED", "").strip().lower() in ("1", "true", "yes")
+
+# One password in front of the whole site. Empty is the office machine, where
+# run.bat binds to 127.0.0.1 and the only way in is to be sitting at it. Hosted
+# it is mandatory, and site_gate below refuses to serve anything without it.
+SITE_USER = os.environ.get("DMU_SITE_USER", "dmu")
+SITE_PASSWORD = os.environ.get("DMU_SITE_PASSWORD", "")
+
+
+# --------------------------------------------------------------------------
+# The password in front of everything
+# --------------------------------------------------------------------------
+
+@app.before_request
+def site_gate():
+    """The browser password prompt, if there is one.
+
+    Off when DMU_SITE_PASSWORD is empty. That is the office machine, where the
+    app is not reachable from anywhere else in the first place.
+
+    Hosted with no password set, every route is refused rather than served. An
+    open copy of this app prints DMU vouchers for anyone who finds the address,
+    and /ledger hands over every number ever issued, so a misconfigured copy has
+    to fail loudly instead of quietly working.
+    """
+    if not SITE_PASSWORD:
+        if HOSTED:
+            return Response(
+                "This copy is not set up yet: DMU_SITE_PASSWORD is empty, so "
+                "nothing is served. Set it and reload the web app.",
+                503, {"Content-Type": "text/plain; charset=utf-8"})
+        return None
+
+    auth = request.authorization
+    supplied_user = (auth.username or "") if auth else ""
+    supplied_pass = (auth.password or "") if auth else ""
+
+    # compare_digest on both, and both always evaluated, so a wrong password
+    # takes the same time as a right one and neither can be timed against the
+    # other.
+    user_ok = secrets.compare_digest(supplied_user, SITE_USER)
+    pass_ok = secrets.compare_digest(supplied_pass, SITE_PASSWORD)
+    if user_ok and pass_ok:
+        return None
+    return Response("Sign in to use the voucher generator.", 401,
+                    {"WWW-Authenticate": 'Basic realm="DMU vouchers"'})
 
 LOGO_FILES = {
     "food_and_drink": ["food-and-drink-logo.png", "food-and-drink-logo.jpg",
@@ -77,6 +130,17 @@ def render_context(config: dict) -> dict:
     return {"cfg": config, "qr": qr, "logos": logo_uris(), "css": read_css()}
 
 
+def thumbnail_uri() -> str | None:
+    """The pre-made picture of a voucher, for the vendor sheet.
+
+    A data URI like the logos, so the rendered HTML stays self-contained and
+    neither PDF engine has anything to fetch. None if it has not been made yet,
+    and the template falls back to the live artwork.
+    """
+    return (data_uri(core.THUMBNAIL_PATH)
+            if core.THUMBNAIL_PATH.is_file() else None)
+
+
 def render_sheet(vouchers_: list[core.Voucher], config: dict, title: str) -> str:
     per_page = int(config.get("vouchers_per_page") or 6)
     return render_template(
@@ -93,18 +157,79 @@ def render_singles(vouchers_: list[core.Voucher], config: dict, title: str) -> s
                            **render_context(config))
 
 
-def render_vendor_sheet(sample: core.Voucher, config: dict) -> str:
-    return render_template("vendor.html", sample=sample, **render_context(config))
+def render_vendor_sheet(config: dict) -> str:
+    """The handout. Always shows the fixed specimen rather than a voucher out of
+    the batch, so the sheet never quotes a number that was really issued."""
+    return render_template("vendor.html",
+                           specimen=core.specimen_voucher(),
+                           thumbnail=thumbnail_uri(),
+                           **render_context(config))
 
 
-def sample_voucher(config: dict) -> core.Voucher:
-    return core.Voucher(
-        code=core.sample_references(1)[0],
-        value_display="£6.00",
-        event_name="Example event",
-        valid_until=core.format_uk_date((date.today() + timedelta(days=30)).isoformat()),
-        event_date="",
-    )
+def render_thumbnail_page(config: dict) -> str:
+    """The specimen voucher alone, for make_sample_thumbnail.py to photograph."""
+    return render_template("thumbnail.html",
+                           specimen=core.specimen_voucher(),
+                           **render_context(config))
+
+
+# --------------------------------------------------------------------------
+# Uploads waiting to be turned into vouchers
+# --------------------------------------------------------------------------
+#
+# On disk, not in memory. Locally that only buys an upload surviving a restart.
+# Hosted it is the difference between working and not: a server runs more than
+# one worker process and recycles them when it likes, so an upload held in one
+# process's memory is invisible to the request that arrives three minutes later
+# with the dates filled in. That fails as "that upload has expired",
+# intermittently, halfway through a batch.
+
+TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def _session_path(token: str) -> Path | None:
+    """None for anything that is not a token we issued, rather than letting a
+    made-up one choose a filename."""
+    if not token or not TOKEN_PATTERN.fullmatch(token):
+        return None
+    return SESSIONS_DIR / f"{token}.json"
+
+
+def save_session(token: str, session: dict) -> None:
+    path = _session_path(token)
+    if path is None:
+        raise ValueError("bad session token")
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    stored = dict(session)
+    stored["requests"] = [asdict(r) for r in session["requests"]]
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    _sweep_sessions()
+
+
+def load_session(token: str) -> dict | None:
+    path = _session_path(token)
+    if path is None or not path.is_file():
+        return None
+    try:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        stored["requests"] = [core.VoucherRequest(**r)
+                              for r in stored["requests"]]
+    except (OSError, ValueError, TypeError):
+        return None
+    return stored
+
+
+def _sweep_sessions(older_than_hours: int = 24) -> None:
+    """An upload is working state, not a record: the CSV itself is kept in
+    Uploads and the vouchers in the ledger. Anything still here a day later was
+    abandoned."""
+    cutoff = datetime.now().timestamp() - older_than_hours * 3600
+    try:
+        for path in SESSIONS_DIR.glob("*.json"):
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 # --------------------------------------------------------------------------
@@ -121,6 +246,8 @@ def base_context(config: dict) -> dict:
         "last_issued": _last_issued(ledger),
         "default_valid_until": (date.today() + timedelta(days=30)).isoformat(),
         "qr": qr_quality(config),
+        "thumbnail_state": core.thumbnail_state(config),
+        "hosted": HOSTED,
     }
 
 
@@ -186,14 +313,13 @@ def upload():
     if parsed.errors:
         return _index_with_error(parsed.errors[0], skipped=parsed.skipped)
 
-    ledger = core.read_ledger()
     token = secrets.token_urlsafe(12)
-    SESSIONS[token] = {
+    save_session(token, {
         "requests": parsed.requests,
         "skipped": parsed.skipped,
         "source_csv": str(saved_path) if saved_path else "",
         "filename": upload_file.filename,
-    }
+    })
 
     return render_template("index.html", parsed=_parsed_context(token),
                            submitted={}, **base_context(config))
@@ -205,7 +331,7 @@ def _parsed_context(token: str) -> dict | None:
     Used both after an upload and after a rejected generate, so that being told
     to tick a box does not mean choosing the file all over again.
     """
-    session = SESSIONS.get(token)
+    session = load_session(token)
     if not session:
         return None
     ledger = core.read_ledger()
@@ -241,7 +367,7 @@ def preview(token: str, index: int):
     real voucher ever does, so a
     preview that gets printed by accident cannot be passed off as a voucher.
     """
-    session = SESSIONS.get(token)
+    session = load_session(token)
     if not session or index >= len(session["requests"]):
         abort(404)
 
@@ -257,13 +383,13 @@ def preview(token: str, index: int):
 @app.get("/preview-vendor")
 def preview_vendor():
     config = core.load_config()
-    return render_vendor_sheet(sample_voucher(config), config)
+    return render_vendor_sheet(config)
 
 
 @app.post("/generate")
 def generate():
     token = request.form.get("token", "")
-    session = SESSIONS.get(token)
+    session = load_session(token)
     if not session:
         return _index_with_error("That upload has expired. Choose the CSV again.")
 
@@ -339,7 +465,7 @@ def generate():
                 if make_singles:
                     singles_written = _write_single_pdfs(writer, vs, config, out_dir)
 
-                writer.write(render_vendor_sheet(vs[0], config),
+                writer.write(render_vendor_sheet(config),
                              out_dir / "Vendor instructions.pdf")
 
                 core.write_batch_summary(out_dir / "Batch summary.csv", req, vs,
@@ -377,9 +503,14 @@ def generate():
                 })
                 batch += 1
 
-            # Refresh the loose copy that lives with the app.
-            writer.write(render_vendor_sheet(sample_voucher(config), config),
-                         core.APP_DIR / "Vendor instructions.pdf")
+            # Refresh the loose copy that lives with the records. Its own
+            # try/except, because the ledger has already been written by this
+            # point: a failure here must not be reported as "nothing was
+            # written anywhere", which is what the handler below says.
+            try:
+                writer.write(render_vendor_sheet(config), core.LOOSE_VENDOR_PDF)
+            except Exception:
+                traceback.print_exc()
     except Exception:
         traceback.print_exc()
         return _index_with_error(
@@ -394,6 +525,7 @@ def generate():
     return render_template(
         "done.html",
         cfg=config,
+        hosted=HOSTED,
         results=results,
         valid_until=core.format_uk_date(valid_until),
         event_date=core.format_uk_date(event_date),
@@ -435,6 +567,9 @@ def _write_single_pdfs(writer: core.PdfWriter, vs: list[core.Voucher],
 
 @app.post("/open-folder")
 def open_folder():
+    # Nothing to open a folder on when the app is served over the web.
+    if HOSTED:
+        abort(404)
     folder = Path(request.form.get("folder", ""))
     try:
         folder = folder.resolve()
@@ -445,6 +580,37 @@ def open_folder():
         abort(404)
     core.open_folder(folder)
     return ("", 204)
+
+
+@app.post("/download")
+def download_batch():
+    """One finished batch as a single zip.
+
+    What replaces "Open the folder" when the app is not running on the machine
+    you are sitting at. Built in memory: a batch is a few PDFs and two CSVs, and
+    a temporary file on a server is only something else to tidy up.
+    """
+    folder = Path(request.form.get("folder", ""))
+    try:
+        folder = folder.resolve()
+        relative = folder.relative_to(core.OUTPUT_DIR.resolve())
+    except (OSError, ValueError):
+        abort(400)
+    # relative_to succeeds for Output itself as well, which would hand over
+    # every batch ever made in a single file.
+    if not relative.parts:
+        abort(400)
+    if not folder.is_dir():
+        abort(404)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(folder.rglob("*")):
+            if path.is_file():
+                zf.write(path, path.relative_to(folder).as_posix())
+    buf.seek(0)
+    return send_file(buf, mimetype="application/zip", as_attachment=True,
+                     download_name=f"{folder.name}.zip")
 
 
 @app.get("/ledger")
@@ -463,6 +629,7 @@ def health():
         "qr": qr_quality(config),
         "vouchers_issued": len(core.read_ledger()),
         "logos": {k: bool(v) for k, v in logo_uris().items()},
+        "sample_thumbnail": core.thumbnail_state(config),
     })
 
 
