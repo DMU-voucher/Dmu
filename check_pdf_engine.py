@@ -53,8 +53,12 @@ def main() -> int:
         value_pence=600, total_value_pence=600 * len(sample),
         cost_centre="CHECK", budget_approver="", budget_approver_email="",
         lead_contact="", lead_contact_email="", status="Approved",
+        # An ID and both dates, so the check exercises the DMU code and the
+        # event date line. Those are the newest bits of layout, and layout is
+        # exactly where the two PDF engines disagree.
+        dmu_id="99", expiry_date="2026-09-24", event_date="2026-09-10",
     )
-    vs = core.build_vouchers(req, sample, "2026-09-24", "")
+    vs = core.build_vouchers(req, sample, core.resolve_venues(config, None))
 
     # Importing the Flask app only for its template rendering.
     import app as generator

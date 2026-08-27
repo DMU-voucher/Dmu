@@ -3,6 +3,10 @@
 #
 #   pip3.10 install --user -r requirements-server.txt
 #
+# Use the pip matching the Python version the Web tab is set to, not necessarily
+# 3.10. That version is fixed when the web app is created and cannot be changed
+# afterwards, and a mismatch serves 502-backend with an empty error log.
+#
 # No Playwright here on purpose: Chromium is 427 MB against a free account's
 # 512 MB, so the server draws PDFs with WeasyPrint instead.
 flask

@@ -10,11 +10,25 @@
 
 <header class="top">
   <div class="wrap">
-    <span class="fd-tag">FOOD &amp; DRINK</span>
-    <div>
+    {% if logos.food_and_drink %}
+      <img class="fd-mark" src="{{ logos.food_and_drink }}" alt="Food &amp; Drink">
+    {% else %}
+      <span class="fd-tag">FOOD &amp; DRINK</span>
+    {% endif %}
+
+    <div class="top-title">
       <h1>Vouchers made</h1>
-      <p>Valid until {{ valid_until }}{% if event_date %}, event {{ event_date }}{% endif %}.</p>
+      {# One date pair used to live here. It cannot now: each event carries its
+         own dates from the export, so they are listed against each batch below. #}
+      <p>Redeemable at {{ venues|join(', ') }}.</p>
     </div>
+
+    {% if logos.dmu %}
+      <img class="dmu-mark" src="{{ logos.dmu }}"
+           alt="De Montfort University Leicester">
+    {% else %}
+      <span class="dmu-tag">DMU<span>De Montfort University</span></span>
+    {% endif %}
   </div>
 </header>
 
@@ -48,6 +62,12 @@
       <dl>
         <dt>Vouchers</dt>
         <dd>{{ r.count }} at {{ r.value_display }} each, {{ r.total_display }} total</dd>
+        <dt>Dates</dt>
+        <dd>
+          Valid until <strong>{{ r.valid_until }}</strong>{% if r.event_date %},
+          event <strong>{{ r.event_date }}</strong>{% endif %}.
+          <span class="tiny">Both taken from this row of the export.</span>
+        </dd>
         <dt>Numbers</dt>
         <dd>
           {{ r.count }} of them, batch {{ r.batch }}. First <code>{{ r.first_code }}</code>,
@@ -55,6 +75,14 @@
           <span class="tiny">They are drawn at random, so they are not a run.
             The full list is in the batch summary.</span>
         </dd>
+        {% if r.first_dmu_code %}
+          <dt>DMU codes</dt>
+          <dd>
+            <code>{{ r.first_dmu_code }}</code> to <code>{{ r.last_dmu_code }}</code>.
+            <span class="tiny">The ID from the export and the ticket number.
+              Unlike the voucher numbers, these do run in order.</span>
+          </dd>
+        {% endif %}
         <dt>Print sheet</dt>
         <dd>{{ r.pages }} page{{ '' if r.pages == 1 else 's' }}, 6 vouchers per page</dd>
         {% if r.singles %}
@@ -85,8 +113,11 @@
       <li>Print <strong>Print sheet.pdf</strong> at <strong>100% scale</strong>, not
         "fit to page", or the vouchers will come out the wrong size.</li>
       <li>Cut along the dashed guides. Six vouchers per A4 sheet.</li>
-      <li>Give <strong>Vendor instructions.pdf</strong> to Saints of Mokha and the
-        street food vendor. There is nothing for them to sign in to.</li>
+      {# Was two vendors by name, which went stale the moment a third was added.
+         This run's own list instead. #}
+      <li>Give <strong>Vendor instructions.pdf</strong> to
+        {{ venues[:-1]|join(', ') }}{% if venues|length > 1 %} and {% endif %}{{ venues[-1] }}.
+        There is nothing for them to sign in to.</li>
       <li><strong>Batch summary.csv</strong> lists every number in the batch with
         blank columns for recording redemptions by hand. Use it to reconcile the
         form's responses afterwards, or on paper at the counter if a vendor

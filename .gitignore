@@ -17,6 +17,9 @@ redeem/data/
 # event names: this is client data, and it does not belong on GitHub.
 Output/
 Uploads/
+# Parsed uploads waiting to be ticked. Holds event names and values from a real
+# export, and is rewritten every time somebody drops a file in.
+Sessions/
 Ledger/issued_vouchers.csv
 # Issued-voucher records are operational data, never source.
 Ledger/*.csv

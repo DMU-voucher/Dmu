@@ -32,16 +32,46 @@ warning at the end.
 1. **Choose the approval export.** The CSV downloaded from the voucher request
    form. Only rows showing as **Approved** produce vouchers. Anything ignored is
    listed on screen with the reason, so nothing disappears quietly.
-2. **Check what was found.** One line per approved request, with the number of
-   vouchers, the value each and the total. Click **Preview** to see the print
-   sheet before committing to it. A preview uses specimen numbers starting `000`
-   and writes nothing to the ledger.
-3. **Set the dates.** "Valid until" is printed on the voucher. The event date is
-   optional.
+2. **Check what was found.** One line per approved request, with the DMU ID, the
+   number of vouchers, the value each, the total, and **both dates as they came
+   out of the file**. Click **Preview** to see the print sheet before committing
+   to it. A preview uses specimen numbers starting `000` and writes nothing to
+   the ledger.
+3. **Choose where they can be spent.** Every venue in `config.json` is offered,
+   ticked. Untick any that do not apply to this run, and type a one-off vendor in
+   the box if there is one. The one-off prints but is not remembered.
 4. **Make the vouchers.**
 
 That is the whole job. There is nothing to upload afterwards and nothing to sign
 in to.
+
+### The dates come from the file, not from you
+
+There is no date field on the page. **Expiry Date** and **Event Date** are read
+per row from the export, so a drop covering four events with four different
+expiry dates comes out right. Before, one date was typed once and applied to
+everything in the run, which is only correct when the run is one event.
+
+Two consequences worth knowing:
+
+- **A row with no expiry date is not offered.** It appears under "Rows not used"
+  saying so. There is nowhere to type one in, and a voucher printed without an
+  expiry never expires while the vendor sheet tells vendors to refuse an expired
+  one. Put the date in the export and drop it in again.
+- **The event date is optional** and simply stays off the voucher when the cell
+  is blank. It is still written to the ledger, which is where the weekly
+  "when will you be busy" list for vendors comes from.
+
+### The DMU code
+
+Each voucher also carries `ID-ticket`, from the export's **ID** column and the
+voucher's place in that request: request 12 for 40 vouchers prints `12-01` to
+`12-40`. It is on the voucher, in `Batch summary.csv` and in the ledger.
+
+It is set small and grey under the voucher number on purpose. The number in the
+red box is the one the vendor keys in; two numbers of equal weight is how the
+wrong one gets typed. An export with no ID column simply produces no DMU code,
+and everything else works as before.
 
 ## What comes out
 
@@ -52,19 +82,35 @@ Everything lands in `Output\<date> <event name>\`:
 | `Print sheet.pdf` | A4 sheets, six vouchers per page, dashed cut guides. **Print at 100% scale, not "fit to page".** |
 | `Individual\DMU-482-173-906.pdf` and so on | One PDF per voucher, named by its number, for emailing to attendees. |
 | `All vouchers (individual pages).pdf` | The same one-per-page vouchers as a single document, if you would rather print than email. |
-| `Vendor instructions.pdf` | One page to give Saints of Mokha and the street food vendor. |
-| `Batch summary.csv` | Every number in the batch, with blank columns for recording redemptions by hand. |
+| `Vendor instructions.pdf` | One page to give each vendor this run is redeemable at. |
+| `Batch summary.csv` | Every number in the batch with its DMU code, plus blank columns for recording redemptions by hand. Also records which vendors the run was for. |
 | `Source export - ....csv` | A copy of the exact file that was dropped in. |
 
 And `Ledger\issued_vouchers.csv` gains a row per voucher. That file is the record
 of everything ever issued. Do not delete it: it is both the audit trail and what
 the app checks to make sure a number is never issued twice.
 
+**The ledger gained a `dmu_code` column.** The first time a newer copy of the app
+appends to an older ledger it rewrites the header, back-fills the new column as
+blank on the existing rows, and drops a dated `issued_vouchers.bak-...csv` beside
+it first. This happens by itself, once, including on the server. Without it the
+app would append wider rows under the old header and every reader of the file,
+this one included, would misread them.
+
 ## Wording, venues and the QR link
 
 `config.json`, in Notepad. The venue names, the small print, the instruction
 lines, and `qr_url`, which is the address the QR code opens. Save the file and
 reload the page in the browser. Nothing else needs touching.
+
+**Venues are the settled list.** Everything in `venues` is offered on the
+make-vouchers page, ticked, and a run can untick any of them or add a one-off in
+the box beside them. Put a vendor here when it is permanent; use the box when it
+is a pop-up. Unticking every venue prints the full list rather than a voucher
+with nowhere to spend it.
+
+Adding or renaming a venue changes what a voucher looks like, so the example
+picture on the vendor sheet goes out of date and has to be remade. See below.
 
 **There is no QR code on a voucher.** The code is the same for all 500 of them,
 so printing it 500 times was waste and the vendor bookmarks the page after one
@@ -202,9 +248,23 @@ by `wsgi.py`, which is the file PythonAnywhere loads.
 
 1. **Get the code there.** Clone or upload the folder to
    `/home/YOURNAME/dmu-vouchers`.
-2. **Install what it needs.** In a Bash console,
-   `pip3.10 install --user -r requirements-server.txt`. No Playwright: Chromium
-   is 427 MB against a free account's 512 MB.
+2. **Install what it needs**, with the pip that matches the Python version the
+   Web tab is set to. In a Bash console,
+   `pip3.10 install --user -r requirements-server.txt`, substituting the version.
+   No Playwright: Chromium is 427 MB against a free account's 512 MB.
+
+   **A web app's Python version is fixed when the web app is created and cannot
+   be changed afterwards.** Install with the wrong one and the site serves
+   **502-backend with a completely empty error log**, which reads like a broken
+   app but is only a missing interpreter. This one-liner finds the right version
+   rather than guessing:
+
+   ```
+   for p in $(ls -d /usr/bin/python3.[0-9]* | grep -v config); do echo "== $p"; (cd ~/dmu-vouchers && "$p" -c "import wsgi" 2>&1 | tail -2); done
+   ```
+
+   Only `flask` and `segno` are imported at startup. WeasyPrint and PyMuPDF are
+   imported inside the functions that use them, so neither can cause a boot 502.
 3. **Point the web app at it.** Web tab, WSGI configuration file, replace what
    is in it with the two lines at the top of `wsgi.py`.
 4. **Set the password.** Copy `.env.example` to `.env` in the same folder and

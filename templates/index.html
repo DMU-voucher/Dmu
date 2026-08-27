@@ -10,16 +10,31 @@
 
 <header class="top">
   <div class="wrap">
-    <span class="fd-tag">FOOD &amp; DRINK</span>
-    <div>
+    {# The same artwork the vouchers carry. Both fall back to a text lockup
+       until somebody drops the files into assets/, so the page is never
+       broken-looking on a fresh copy, just plainer. #}
+    {% if logos.food_and_drink %}
+      <img class="fd-mark" src="{{ logos.food_and_drink }}" alt="Food &amp; Drink">
+    {% else %}
+      <span class="fd-tag">FOOD &amp; DRINK</span>
+    {% endif %}
+
+    <div class="top-title">
       <h1>Voucher generator</h1>
       {% if hosted %}
-        <p>De Montfort University. Every voucher made here is written to the log,
-          which is what stops a number going out twice.</p>
+        <p>Every voucher made here is written to the log, which is what stops a
+          number going out twice.</p>
       {% else %}
-        <p>De Montfort University. Everything happens on this computer, nothing is uploaded.</p>
+        <p>Everything happens on this computer, nothing is uploaded.</p>
       {% endif %}
     </div>
+
+    {% if logos.dmu %}
+      <img class="dmu-mark" src="{{ logos.dmu }}"
+           alt="De Montfort University Leicester">
+    {% else %}
+      <span class="dmu-tag">DMU<span>De Montfort University</span></span>
+    {% endif %}
   </div>
 </header>
 
@@ -129,8 +144,20 @@
                     <label for="sel{{ item.index }}">
                       <span class="event">{{ r.event_name }}</span>
                       <span class="meta">
+                        {%- if r.dmu_id %}ID {{ r.dmu_id }} &middot; {% endif -%}
                         Cost centre {{ r.cost_centre or 'not given' }}
                         {%- if r.budget_approver %} &middot; approved by {{ r.budget_approver }}{% endif %}
+                      </span>
+                      {# Both dates come from the file now, so they have to be
+                         visible here. This is the only place anyone can check
+                         them before the vouchers are printed. #}
+                      <span class="meta dates">
+                        Valid until <strong>{{ r.expiry_display }}</strong>
+                        {%- if r.event_date_display %}
+                          &middot; event <strong>{{ r.event_date_display }}</strong>
+                        {%- else %}
+                          &middot; <span class="muted">no event date</span>
+                        {%- endif %}
                       </span>
                     </label>
                   </td>
@@ -138,7 +165,7 @@
                   <td class="num">{{ r.value_display }}</td>
                   <td class="num">{{ r.total_display }}</td>
                   <td>
-                    <a class="tiny" target="_blank"
+                    <a class="tiny preview-link" target="_blank"
                        href="{{ url_for('preview', token=parsed.token, index=item.index) }}">Preview</a>
                   </td>
                 </tr>
@@ -177,23 +204,39 @@
             </div>
           {% endif %}
 
-          <h2 style="margin-top:26px"><span class="step">3</span>Set the dates</h2>
+          <h2 style="margin-top:26px"><span class="step">3</span>Choose where they can be spent</h2>
           <p class="hint">
-            Printed on every voucher. The vendor is told not to accept a voucher
-            after the valid until date.
+            Printed on every voucher in this run. There are no dates to fill in
+            any more: both come from the file, and are shown against each event
+            above.
           </p>
           <div class="body" style="margin-left:36px">
-            <label class="field">
-              <span class="lab">Valid until</span>
-              <input type="date" name="valid_until"
-                     value="{{ submitted.get('valid_until') or default_valid_until }}" required>
-              <span class="sub">Defaults to 30 days from today.</span>
-            </label>
+
+            <fieldset class="venues">
+              <legend class="lab">Redeemable at</legend>
+              {% for venue in cfg.venues %}
+                <label class="checkline">
+                  <input type="checkbox" name="venues" value="{{ venue }}"
+                         {% if not submitted or venue in submitted.getlist('venues') %}checked{% endif %}>
+                  <span class="lab">{{ venue }}</span>
+                </label>
+              {% endfor %}
+              <span class="sub">
+                Untick a vendor to leave it off this run. Unticking every one
+                prints the full list instead, because a voucher that does not say
+                where it can be spent is no use to the holder.
+              </span>
+            </fieldset>
 
             <label class="field">
-              <span class="lab">Event date (optional)</span>
-              <input type="date" name="event_date" value="{{ submitted.get('event_date', '') }}">
-              <span class="sub">Leave blank to keep it off the voucher.</span>
+              <span class="lab">Add a vendor for this run only (optional)</span>
+              <input type="text" name="extra_venue" maxlength="60"
+                     placeholder="A pop-up stall, say"
+                     value="{{ submitted.get('extra_venue', '') }}">
+              <span class="sub">
+                Printed on these vouchers but not remembered. To add one for
+                good, put it in <code>config.json</code>.
+              </span>
             </label>
 
             <label class="field">
@@ -240,9 +283,39 @@
       <a href="{{ url_for('ledger_csv') }}" target="_blank">View the log</a> &middot;
     {% endif %}
     <a href="{{ url_for('preview_vendor') }}" target="_blank">Vendor instruction sheet</a>
-    &middot; Redeemable at {{ cfg.venues|join(' and ') }}.
+    &middot; Redeemable at
+    {{- ' ' }}{{ cfg.venues[:-1]|join(', ') }}
+    {%- if cfg.venues|length > 1 %} and {% endif -%}
+    {{ cfg.venues[-1] }}.
   </footer>
 
 </div>
+
+{# A preview is rendered from a plain link, so it cannot know what has been
+   ticked since the page loaded. Carry the venue choice across as it is clicked,
+   or the preview shows a different set of vendors to the one about to be
+   printed, which is the sort of thing nobody spots until it is on paper. #}
+<script>
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest('a.preview-link');
+    if (!link) return;
+
+    var url = new URL(link.getAttribute('href'), window.location.href);
+    url.searchParams.delete('venues');
+    url.searchParams.delete('extra_venue');
+
+    document.querySelectorAll('input[name="venues"]:checked').forEach(function (box) {
+      url.searchParams.append('venues', box.value);
+    });
+
+    var extra = document.querySelector('input[name="extra_venue"]');
+    if (extra && extra.value.trim()) {
+      url.searchParams.set('extra_venue', extra.value.trim());
+    }
+
+    link.href = url.pathname + url.search;
+  });
+</script>
+
 </body>
 </html>

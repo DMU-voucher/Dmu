@@ -26,8 +26,11 @@
   <div class="v-mid">
     <div class="v-where">
       <div class="v-where-intro">{{ cfg.venue_intro }}</div>
+      {# The batch's own picked venues when there are any, otherwise the settled
+         list. The specimen on the vendor sheet passes none, so the handout goes
+         on showing the configured list whatever a given print run chose. #}
       <ul class="v-venues">
-        {% for venue in cfg.venues %}<li>{{ venue }}</li>{% endfor %}
+        {% for venue in (v.venues or cfg.venues) %}<li>{{ venue }}</li>{% endfor %}
       </ul>
       <div class="v-warning">{{ cfg.venue_warning }}</div>
       <div class="v-action">{{ cfg.holder_instruction }}</div>
@@ -57,7 +60,14 @@
       <span class="v-ref-number">{{ v.code }}</span>
     </div>
 
+    {# DMU's own reference, from the ID column of the approval export and the
+       ticket number within that request. Deliberately down here and small: the
+       vendor reads the voucher number above, and two long numbers of equal
+       weight is how the wrong one gets keyed in. #}
     <div class="v-code-row">
+      {% if v.dmu_code %}
+        <div class="v-dmu-code"><span>DMU code</span> <code>{{ v.dmu_code }}</code></div>
+      {% endif %}
       <div class="v-event">{{ v.event_name }}</div>
     </div>
   </div>

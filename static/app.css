@@ -39,6 +39,37 @@ header.top {
 
 header.top .wrap { padding-bottom: 0; display: flex; align-items: center; gap: 16px; }
 
+.top-title { flex: 1 1 auto; min-width: 0; }
+
+/* The real artwork, when it is in assets/. Sized by height so any resolution of
+   logo drops in without being told what shape it is, which is the same bargain
+   the voucher layout makes. */
+.fd-mark { height: 34px; width: auto; flex: 0 0 auto; }
+.dmu-mark { height: 38px; width: auto; flex: 0 0 auto; }
+
+/* Stand-in for the DMU logo until that file arrives. Recognisably DMU, plainly
+   not the real mark, so nobody ships it thinking the artwork is in place. */
+.dmu-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  line-height: 1.05;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--dmu-red);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dmu-tag span {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
 .fd-tag {
   background: var(--fd-orange);
   color: #fff;
@@ -206,3 +237,56 @@ footer.foot {
 }
 
 footer.foot a { color: var(--dmu-red); }
+
+/* The venue picker. Boxed rather than loose checkboxes, because it is the only
+   thing on the page that changes what the printed voucher says, now that the
+   dates come out of the file. */
+fieldset.venues {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fcfcfe;
+  padding: 12px 16px 4px;
+  margin: 0 0 18px;
+  max-width: 620px;
+}
+
+fieldset.venues legend {
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+fieldset.venues .checkline { margin-bottom: 10px; }
+
+fieldset.venues .sub {
+  display: block;
+  margin: 2px 0 12px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* The dates line under each event. They come from the file now and cannot be
+   corrected on this page, so they have to be readable at a glance: this is the
+   last look anybody gets at them before the vouchers are printed. */
+table.reqs .meta.dates { margin-top: 3px; }
+table.reqs .meta.dates strong { color: var(--ink); font-weight: 600; }
+
+.muted { color: #8b8b95; font-style: italic; }
+
+table.reqs tbody tr:hover td { background: #fafafc; }
+
+/* Focus was invisible before. This is a form somebody tabs through with a print
+   queue waiting, so it needs to show where it is. */
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--dmu-red);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  header.top .wrap { flex-wrap: wrap; gap: 12px; }
+  .top-title { order: 3; flex-basis: 100%; }
+  .wrap { padding: 0 16px 48px; }
+  .panel { padding: 18px 16px; }
+}

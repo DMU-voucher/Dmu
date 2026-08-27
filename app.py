@@ -18,7 +18,7 @@ import secrets
 import traceback
 import zipfile
 from dataclasses import asdict
-from datetime import datetime, date, timedelta
+from datetime import datetime
 from pathlib import Path
 
 from flask import (Flask, Response, abort, jsonify, render_template, request,
@@ -244,10 +244,13 @@ def base_context(config: dict) -> dict:
         "qr_ready": core.qr_url_configured(config),
         "ledger_count": len(ledger),
         "last_issued": _last_issued(ledger),
-        "default_valid_until": (date.today() + timedelta(days=30)).isoformat(),
         "qr": qr_quality(config),
         "thumbnail_state": core.thumbnail_state(config),
         "hosted": HOSTED,
+        # The same data URIs the vouchers use, so the page wears the real
+        # artwork the moment somebody drops the files into assets/ and nothing
+        # has to be pointed at a second copy of them.
+        "logos": logo_uris(),
     }
 
 
@@ -373,10 +376,12 @@ def preview(token: str, index: int):
 
     config = core.load_config()
     req = session["requests"][index]
-    valid_until = request.args.get("valid_until", "")
-    event_date = request.args.get("event_date", "")
-    vs = core.build_vouchers(req, core.sample_references(req.count),
-                             valid_until, event_date)
+    # The dates ride on the request now, straight from the export, so a preview
+    # shows the same ones the print will. Only the venues are still a choice, so
+    # they are the only thing worth carrying in the query string.
+    venues = core.resolve_venues(config, request.args.getlist("venues"),
+                                 request.args.get("extra_venue", ""))
+    vs = core.build_vouchers(req, core.sample_references(req.count), venues)
     return render_sheet(vs, config, f"Preview - {req.event_name}")
 
 
@@ -406,26 +411,15 @@ def generate():
         return _index_with_error("Tick at least one event to make vouchers for.",
                                  token=token)
 
-    valid_until = (request.form.get("valid_until") or "").strip()
-    event_date = (request.form.get("event_date") or "").strip()
     issued_by = (request.form.get("issued_by") or "").strip()
     make_singles = request.form.get("make_singles") == "on"
     override = request.form.get("override_duplicates") == "on"
 
-    if not valid_until:
-        return _index_with_error("Enter the date the vouchers are valid until.",
-                                 token=token)
-    try:
-        date.fromisoformat(valid_until)
-    except ValueError:
-        return _index_with_error("The valid until date is not a real date.",
-                                 token=token)
-    if event_date:
-        try:
-            date.fromisoformat(event_date)
-        except ValueError:
-            return _index_with_error("The event date is not a real date.",
-                                     token=token)
+    # No dates to read or check here any more. Both come off the row in the
+    # export, and a row without a usable expiry never reaches this point:
+    # parse_csv puts it in skipped rather than offering it to be ticked.
+    venues = core.resolve_venues(config, request.form.getlist("venues"),
+                                 request.form.get("extra_venue", ""))
 
     ledger = core.read_ledger()
     blocked = []
@@ -454,7 +448,7 @@ def generate():
             for i in selected:
                 req = session["requests"][i]
                 references = core.draw_references(req.count)
-                vs = core.build_vouchers(req, references, valid_until, event_date)
+                vs = core.build_vouchers(req, references, venues)
                 out_dir = core.unique_output_dir(req.event_name, issued_at)
                 out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -469,19 +463,19 @@ def generate():
                              out_dir / "Vendor instructions.pdf")
 
                 core.write_batch_summary(out_dir / "Batch summary.csv", req, vs,
-                                         batch, valid_until, event_date,
-                                         issued_by, issued_at)
+                                         batch, issued_by, issued_at, venues)
                 src = session.get("source_csv")
                 core.copy_source_csv(Path(src) if src else None, out_dir)
 
                 core.append_ledger([{
                     "voucher_code": v.code,
+                    "dmu_code": v.dmu_code,
                     "batch": f"{batch:03d}",
                     "event_name": req.event_name,
                     "cost_centre": req.cost_centre,
                     "value_pence": req.value_pence,
-                    "valid_until": valid_until,
-                    "event_date": event_date,
+                    "valid_until": req.expiry_date,
+                    "event_date": req.event_date,
                     "budget_approver": req.budget_approver,
                     "lead_contact": req.lead_contact,
                     "issued_at": issued_at.isoformat(timespec="seconds"),
@@ -497,6 +491,11 @@ def generate():
                     "batch": f"{batch:03d}",
                     "first_code": vs[0].code,
                     "last_code": vs[-1].code,
+                    # Per event now, because the export carries a date per row.
+                    "valid_until": core.format_uk_date(req.expiry_date),
+                    "event_date": core.format_uk_date(req.event_date),
+                    "first_dmu_code": vs[0].dmu_code,
+                    "last_dmu_code": vs[-1].dmu_code,
                     "folder": str(out_dir),
                     "pages": -(-len(vs) // int(config.get("vouchers_per_page") or 6)),
                     "singles": singles_written,
@@ -527,8 +526,8 @@ def generate():
         cfg=config,
         hosted=HOSTED,
         results=results,
-        valid_until=core.format_uk_date(valid_until),
-        event_date=core.format_uk_date(event_date),
+        venues=venues,
+        logos=logo_uris(),
         issued_by=issued_by,
         qr_ready=core.qr_url_configured(config),
         qr_url=core.qr_url(config),

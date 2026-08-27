@@ -43,6 +43,7 @@ PLACEHOLDER_QR_URL = "PASTE THE MICROSOFT FORM ADDRESS HERE"
 
 LEDGER_FIELDS = [
     "voucher_code",
+    "dmu_code",
     "batch",
     "event_name",
     "cost_centre",
@@ -117,11 +118,31 @@ def parse_int(raw: str) -> int | None:
         return None
 
 
+def parse_uk_date(raw: str) -> str:
+    """'30/09/2026' -> '2026-09-30'. Everything downstream works in ISO.
+
+    The export writes UK order, and Excel sometimes hands back ISO instead after
+    somebody has opened and resaved the file, so both are accepted. Anything else
+    comes back empty rather than guessed: a wrong expiry date on a voucher is
+    worse than a row the app refuses to print.
+    """
+    if not raw:
+        return ""
+    cleaned = str(raw).strip()
+    for pattern in ("%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(cleaned, pattern).date().isoformat()
+        except ValueError:
+            continue
+    return ""
+
+
 # --------------------------------------------------------------------------
 # CSV parsing
 # --------------------------------------------------------------------------
 
 HEADER_ALIASES = {
+    "id": "dmu_id",
     "event name": "event_name",
     "number of vouchers": "count",
     "value per voucher": "value",
@@ -133,6 +154,8 @@ HEADER_ALIASES = {
     "lead contact": "lead_contact",
     "lead contact email": "lead_contact_email",
     "status": "status",
+    "expiry date": "expiry_date",
+    "event date": "event_date",
 }
 
 
@@ -149,7 +172,23 @@ class VoucherRequest:
     lead_contact: str
     lead_contact_email: str
     status: str
+    # From the export, ISO or empty. The dates are the file's to decide: there is
+    # no date field on the form, so a mixed drop cannot be given one date by hand.
+    dmu_id: str = ""
+    expiry_date: str = ""
+    event_date: str = ""
     warnings: list[str] = field(default_factory=list)
+
+    def dmu_code_for(self, ticket: int) -> str:
+        """DMU's own reference for one voucher: the request ID and the ticket number.
+
+        Padded to the width of the count, so a run of 100 reads 12-001 to 12-100
+        and sorts in a spreadsheet. Blank when the export has no ID, which is
+        what old files and hand-made ones look like.
+        """
+        if not self.dmu_id:
+            return ""
+        return f"{self.dmu_id}-{ticket:0{len(str(self.count))}d}"
 
     @property
     def key(self) -> str:
@@ -168,11 +207,21 @@ class VoucherRequest:
     def total_display(self) -> str:
         return format_money(self.value_pence * self.count)
 
+    @property
+    def expiry_display(self) -> str:
+        return format_uk_date(self.expiry_date)
+
+    @property
+    def event_date_display(self) -> str:
+        return format_uk_date(self.event_date)
+
     def as_dict(self) -> dict:
         d = asdict(self)
         d["key"] = self.key
         d["value_display"] = self.value_display
         d["total_display"] = self.total_display
+        d["expiry_display"] = self.expiry_display
+        d["event_date_display"] = self.event_date_display
         return d
 
 
@@ -237,6 +286,8 @@ def parse_csv(text: str) -> ParseResult:
         count = parse_int(get(row, "count"))
         value_pence = parse_money(get(row, "value"))
         total_pence = parse_money(get(row, "total_value"))
+        expiry_date = parse_uk_date(get(row, "expiry_date"))
+        event_date = parse_uk_date(get(row, "event_date"))
 
         label = event_name or f"row {row_number}"
 
@@ -272,6 +323,21 @@ def parse_csv(text: str) -> ParseResult:
             })
             continue
 
+        # The expiry is the file's to supply and there is no field on the form to
+        # fill one in with. A voucher printed without one never expires, and the
+        # vendor sheet tells vendors to refuse an expired voucher, so a missing
+        # date has to stop the row rather than be invented here.
+        if not expiry_date:
+            raw_expiry = get(row, "expiry_date")
+            result.skipped.append({
+                "row_number": row_number,
+                "event_name": label,
+                "reason": (f"expiry date is '{raw_expiry}', which is not a date"
+                           if raw_expiry else
+                           "no expiry date in the file. Add one and drop it in again"),
+            })
+            continue
+
         req = VoucherRequest(
             row_number=row_number,
             event_name=event_name,
@@ -284,7 +350,17 @@ def parse_csv(text: str) -> ParseResult:
             lead_contact=get(row, "lead_contact"),
             lead_contact_email=get(row, "lead_contact_email"),
             status=status,
+            dmu_id=get(row, "dmu_id"),
+            expiry_date=expiry_date,
+            event_date=event_date,
         )
+
+        raw_event_date = get(row, "event_date")
+        if raw_event_date and not event_date:
+            req.warnings.append(
+                f"Event date in the file is '{raw_event_date}', which is not a "
+                f"date, so it has been left off the voucher."
+            )
 
         if total_pence is not None and total_pence != count * value_pence:
             req.warnings.append(
@@ -384,15 +460,53 @@ def previous_issue(request: VoucherRequest, ledger: list[dict] | None = None) ->
     return None
 
 
+def _migrate_ledger_header() -> list[str]:
+    """Bring an older ledger up to the current columns, and say what to write with.
+
+    append_ledger only writes a header when the file is new, so adding a column
+    to LEDGER_FIELDS would otherwise append wider rows underneath the old,
+    narrower header. Every reader of the file, this app included, would then
+    misread the extra value. The fix has to happen before the first append, and
+    it has to happen on the server, where the ledger already has real rows in it.
+
+    Columns the file has that this version does not know about are kept rather
+    than dropped, so a ledger written by a newer copy of the app is never
+    silently narrowed by an older one.
+    """
+    if not LEDGER_PATH.exists():
+        return list(LEDGER_FIELDS)
+
+    with open(LEDGER_PATH, newline="", encoding="utf-8-sig") as fh:
+        reader = csv.DictReader(fh)
+        existing = [c for c in (reader.fieldnames or []) if c]
+        if existing == LEDGER_FIELDS:
+            return list(LEDGER_FIELDS)
+        rows = list(reader)
+
+    fields = LEDGER_FIELDS + [c for c in existing if c not in LEDGER_FIELDS]
+
+    stamp = datetime.now().strftime("%Y-%m-%d-%H%M")
+    backup = LEDGER_PATH.with_name(f"{LEDGER_PATH.stem}.bak-{stamp}{LEDGER_PATH.suffix}")
+    shutil.copy2(LEDGER_PATH, backup)
+
+    with open(LEDGER_PATH, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: (row.get(k) or "") for k in fields})
+    return fields
+
+
 def append_ledger(rows: list[dict]) -> None:
     LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
     new_file = not LEDGER_PATH.exists()
+    fields = list(LEDGER_FIELDS) if new_file else _migrate_ledger_header()
     with open(LEDGER_PATH, "a", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=LEDGER_FIELDS)
+        writer = csv.DictWriter(fh, fieldnames=fields)
         if new_file:
             writer.writeheader()
         for row in rows:
-            writer.writerow({k: row.get(k, "") for k in LEDGER_FIELDS})
+            writer.writerow({k: row.get(k, "") for k in fields})
 
 
 # --------------------------------------------------------------------------
@@ -462,6 +576,11 @@ class Voucher:
     event_name: str
     valid_until: str
     event_date: str
+    # DMU's own reference for this voucher, from the export's ID column.
+    dmu_code: str = ""
+    # Where this batch can be spent. Empty means fall back to the configured
+    # list, which is what the specimen on the vendor sheet does.
+    venues: list[str] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------
@@ -486,6 +605,10 @@ THUMBNAIL_STAMP = APP_DIR / "static" / "sample-voucher.json"
 # expired, on a sheet whose own rules say to refuse an expired voucher.
 SPECIMEN_VALID_UNTIL = "DD Month YYYY"
 
+# Likewise not a real one. The shape is what the vendor needs to recognise, and
+# a plausible-looking code on a handout invites somebody to try redeeming it.
+SPECIMEN_DMU_CODE = "00-000"
+
 
 def specimen_voucher() -> "Voucher":
     """The example voucher the vendor sheet shows and quotes.
@@ -499,6 +622,11 @@ def specimen_voucher() -> "Voucher":
         event_name="Example event",
         valid_until=SPECIMEN_VALID_UNTIL,
         event_date="",
+        dmu_code=SPECIMEN_DMU_CODE,
+        # Left empty so the specimen shows the configured list. A batch's own
+        # picked venues must not reach the handout, or the fingerprint below
+        # would change with every print run.
+        venues=[],
     )
 
 
@@ -586,22 +714,49 @@ def safe_folder_name(name: str) -> str:
     return cleaned[:80] or "Event"
 
 
+def resolve_venues(config: dict, selected: list[str] | None,
+                   extra: str = "") -> list[str]:
+    """Where this batch can be spent: the ticked venues plus any one-off typed in.
+
+    Unticking everything comes back as the configured list rather than an empty
+    one. A voucher that does not say where it can be spent is useless to the
+    holder and unenforceable for the vendor, so that is treated as a slip rather
+    than an instruction.
+
+    The one-off is deliberately not written back to config.json. It belongs to
+    this print run, and the specimen on the vendor sheet has to go on showing the
+    settled list or its fingerprint would move every time somebody typed one in.
+    """
+    known = [v for v in (config.get("venues") or []) if str(v).strip()]
+    picked = [v for v in known if v in set(selected or [])]
+    extra = re.sub(r"\s+", " ", extra or "").strip()
+    if extra and extra not in picked:
+        picked.append(extra)
+    return picked or known
+
+
 def build_vouchers(request: VoucherRequest, references: list[str],
-                   valid_until: str, event_date: str) -> list[Voucher]:
+                   venues: list[str] | None = None) -> list[Voucher]:
     """Dress a list of references as printable vouchers.
 
     Drawing the numbers is separate on purpose. A preview must never write a
     real number to the ledger, so it passes in throwaway ones.
+
+    Both dates come off the request, because they come off the row in the
+    export. There is no way to pass a different one in, which is the point: one
+    date typed on the form used to be applied to every event in a mixed drop.
     """
     return [
         Voucher(
             code=reference,
             value_display=request.value_display,
             event_name=request.event_name,
-            valid_until=format_uk_date(valid_until),
-            event_date=format_uk_date(event_date),
+            valid_until=format_uk_date(request.expiry_date),
+            event_date=format_uk_date(request.event_date),
+            dmu_code=request.dmu_code_for(ticket),
+            venues=list(venues or []),
         )
-        for reference in references
+        for ticket, reference in enumerate(references, start=1)
     ]
 
 
@@ -769,26 +924,29 @@ def unique_output_dir(event_name: str, when: datetime) -> Path:
 
 
 def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Voucher],
-                        batch: int, valid_until: str, event_date: str, issued_by: str,
-                        issued_at: datetime) -> None:
+                        batch: int, issued_by: str, issued_at: datetime,
+                        venues: list[str] | None = None) -> None:
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["Event", request.event_name])
+        writer.writerow(["DMU ID", request.dmu_id])
         writer.writerow(["Cost centre", request.cost_centre])
         writer.writerow(["Budget approver", request.budget_approver])
         writer.writerow(["Lead contact", request.lead_contact])
         writer.writerow(["Vouchers", request.count])
         writer.writerow(["Value per voucher", request.value_display])
         writer.writerow(["Total value", request.total_display])
-        writer.writerow(["Event date", format_uk_date(event_date)])
-        writer.writerow(["Valid until", format_uk_date(valid_until)])
+        writer.writerow(["Event date", format_uk_date(request.event_date)])
+        writer.writerow(["Valid until", format_uk_date(request.expiry_date)])
+        writer.writerow(["Redeemable at", ", ".join(venues or [])])
         writer.writerow(["Batch", f"{batch:03d}"])
         writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M")])
         writer.writerow(["Issued by", issued_by])
         writer.writerow([])
-        writer.writerow(["Voucher number", "Value", "Redeemed at", "Date redeemed"])
+        writer.writerow(["Voucher number", "DMU code", "Value",
+                         "Redeemed at", "Date redeemed"])
         for v in vouchers:
-            writer.writerow([v.code, v.value_display, "", ""])
+            writer.writerow([v.code, v.dmu_code, v.value_display, "", ""])
 
 
 def copy_source_csv(source: Path | None, dest_dir: Path) -> None:

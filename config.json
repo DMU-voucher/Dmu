@@ -2,9 +2,11 @@
   "_comment": "Everything the wording or the link might need changing to lives in this file. Edit it in Notepad, save, then reload the app in the browser. No need to touch any other file.",
   "_qr_url": "The address of the Microsoft Form the vendor records vouchers in. The QR code for it is printed on Vendor instructions.pdf, not on the vouchers: the same code serves every voucher, so the vendor keeps one copy by the till. Printed at 45mm on that sheet, a long ResponsePage address is perfectly scannable, so there is no need to shorten it. Left as placeholder text, the vendor sheet prints with a note in place of the code.",
   "qr_url": "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=48B4T1DS3027HBXTFFaXzNpH91VJa8dOn_9IM3XVRntUMEpOSEs1MVg2WDBMM1dBQUFZQ0pKU001Vy4u",
+  "_venues": "The settled list of places a voucher can be spent. Every one of these is offered on the make-vouchers page, ticked by default, and a one-off vendor can be typed in there for a single print run without being added here. Changing this list changes the artwork, so the vendor sheet's example picture has to be remade on a machine with Chromium afterwards.",
   "venues": [
     "Saints of Mokha",
-    "Devorer Street Vendor (outside Monty's)"
+    "Devorer Street Vendor (outside Monty's)",
+    "Kim's Korean"
   ],
   "voucher_title": "Food & Drink Voucher",
   "reference_label": "Voucher number",

@@ -327,6 +327,28 @@ html, body {
   max-width: 60mm;
 }
 
+/* DMU's own reference, sat opposite the event name on the bottom line. The auto
+   margin does the pushing rather than the row's justify-content, so a voucher
+   with no code, from an export with no ID column, keeps exactly the layout it
+   had before this existed. Small and grey on purpose: the number the vendor
+   keys in is the one in the red box above, and two numbers of equal weight is
+   how the wrong one gets typed. */
+.v-dmu-code {
+  margin-right: auto;
+  font-size: 5.4pt;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* Label in the sheet's own face, code in mono. Mono for both ran the two
+   together and the label started reading as part of the number. */
+.v-dmu-code span { font-weight: 700; }
+
+.v-dmu-code code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 5.6pt;
+}
+
 /* The money rules and the offline fallback, which are advice rather than a
    warning, so purple rather than a second orange callout shouting alongside
    the first. */
