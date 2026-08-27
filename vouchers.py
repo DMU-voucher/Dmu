@@ -511,11 +511,26 @@ THUMBNAIL_CONFIG_KEYS = ("voucher_title", "reference_label", "holder_instruction
                          "valid_until_label", "small_print")
 
 
+def _fingerprint_text(path: Path) -> bytes:
+    """A tracked text file's bytes, with line endings flattened to LF.
+
+    Git stores these files with LF and hands a Windows checkout CRLF, so the
+    same tracked file is genuinely different bytes on the office computer and on
+    the Linux server: voucher.css is 16529 bytes here and 15898 there. Hashing
+    the bytes as they sit on disk meant a stamp written by the office computer
+    could never match what the server worked out, and the front page called the
+    picture out of date permanently, whoever remade it. Flattening first makes
+    the two agree. The logos below are binary and are hashed as they are.
+    """
+    if not path.is_file():
+        return b""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def thumbnail_fingerprint(config: dict) -> str:
     h = hashlib.sha256()
     for rel in THUMBNAIL_INPUTS:
-        path = APP_DIR / rel
-        h.update(path.read_bytes() if path.is_file() else b"")
+        h.update(_fingerprint_text(APP_DIR / rel))
     h.update(json.dumps({k: config.get(k) for k in THUMBNAIL_CONFIG_KEYS},
                         sort_keys=True, ensure_ascii=False).encode("utf-8"))
     h.update(SPECIMEN_VALID_UNTIL.encode("utf-8"))

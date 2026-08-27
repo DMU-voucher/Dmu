@@ -113,6 +113,31 @@ have to remember.** The app fingerprints all of those, and the front page tells
 you when the picture no longer matches, as does `check_pdf_engine.py`. The
 vouchers themselves are never affected, only the example on the handout.
 
+**If the site says the picture is out of date, check that the picture really is
+the problem.** The banner only means the server's fingerprint does not match the
+stamp in `sample-voucher.json`, which is not the same as the handout being
+wrong: the sheet uses `sample-voucher.png` whenever that file is there, whatever
+the banner says. So compare the two copies before remaking anything. In a
+PythonAnywhere Bash console,
+
+```
+cd ~/dmu-vouchers && git pull && sha256sum static/sample-voucher.png
+```
+
+and the same command here. Matching hashes mean the right picture is already
+being served and it is the warning that is wrong. The PNG is read from disk on
+every request, so a new one counts the moment it lands; the Reload is for code
+changes, not for the picture.
+
+**The fingerprint has to ignore line endings, and August 2026 is why.** Git
+stores the tracked text files with LF and hands a Windows checkout CRLF, so
+`voucher.css` is 16529 bytes on the office computer and 15898 on the server.
+`thumbnail_fingerprint` hashed the bytes as they sat on disk, so a stamp written
+here could never match the one Linux worked out, and the site called the picture
+out of date permanently no matter how many times it was remade. It flattens line
+endings before hashing now. If that ever regresses, the symptom is a warning
+that running `make_sample_thumbnail.py` will not clear.
+
 ---
 
 ## The voucher numbers
@@ -198,6 +223,12 @@ by `wsgi.py`, which is the file PythonAnywhere loads.
 Pull or upload the changed files, then press Reload. The records live in
 `~/dmu-voucher-data`, deliberately outside the repository folder, so a deploy
 cannot take the ledger with it.
+
+**Prefer `git pull` to uploading by hand.** Uploading is where
+`static/sample-voucher.png` gets left behind, because it is the one file that
+looks like an asset rather than code, and a missing picture does not error: the
+handout quietly falls back to the drawn artwork, which is the version WeasyPrint
+prints with an empty voucher-number box.
 
 **What is different up there**
 
