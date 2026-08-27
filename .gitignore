@@ -2,9 +2,9 @@
 redeem/.env
 .env
 
-# The voucher database: the pool of 500,000 numbers and what has gone out.
-# 30MB, and it is operational data, not code. The generator draws its own on
-# first run. Back it up with the rest of the Dropbox folder, not with git.
+# An old voucher database, if a copy is still lying about. The pre-drawn pool
+# was removed in August 2026 and nothing writes this file any more, but an old
+# one is client data and does not belong on GitHub.
 Ledger/vouchers.db
 Ledger/vouchers.db-wal
 Ledger/vouchers.db-shm
