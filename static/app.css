@@ -284,6 +284,66 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* The working overlay. Covers the page while the PDFs are drawn, which is one
+   long request with nothing to look at otherwise, and takes the button out of
+   reach: a second click issues a second batch of real voucher numbers. */
+.working {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(28, 28, 30, 0.55);
+}
+
+.working[hidden] { display: none; }
+
+.working-card {
+  width: 100%;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 26px 28px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+}
+
+.working-card h2 { margin: 0 0 14px; font-size: 18px; }
+
+/* Deliberately indeterminate. The generate is a single request that cannot
+   report how far through it is, and a bar inventing a percentage would be
+   guessing at how long a print run takes on a machine it knows nothing about. */
+.bar {
+  height: 8px;
+  border-radius: 99px;
+  background: #ececf1;
+  overflow: hidden;
+}
+
+.bar-run {
+  height: 100%;
+  width: 38%;
+  border-radius: 99px;
+  background: var(--dmu-red);
+  animation: bar-run 1.4s ease-in-out infinite;
+}
+
+@keyframes bar-run {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(300%); }
+}
+
+.working-what { margin: 14px 0 0; font-size: 15px; font-weight: 600; }
+.working-note { margin: 8px 0 0; color: var(--ink-soft); font-size: 13.5px; }
+.working-time { margin: 10px 0 0; }
+
+button[disabled] { opacity: 0.65; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-run { animation-duration: 3.2s; }
+}
+
 @media (max-width: 640px) {
   header.top .wrap { flex-wrap: wrap; gap: 12px; }
   .top-title { order: 3; flex-basis: 100%; }

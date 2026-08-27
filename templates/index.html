@@ -117,7 +117,7 @@
       <p class="hint">From <strong>{{ parsed.filename }}</strong>.</p>
       <div class="body">
 
-        <form method="post" action="{{ url_for('generate') }}">
+        <form method="post" action="{{ url_for('generate') }}" id="make-form">
           <input type="hidden" name="token" value="{{ parsed.token }}">
 
           <table class="reqs">
@@ -136,8 +136,10 @@
                 {% set r = item.request %}
                 <tr>
                   <td class="tick">
+                    {# data-count so the working overlay can total up what is
+                       actually ticked without asking the server first. #}
                     <input type="checkbox" name="selected" value="{{ item.index }}"
-                           id="sel{{ item.index }}"
+                           id="sel{{ item.index }}" data-count="{{ r.count }}"
                            {% if not submitted or item.index|string in submitted.getlist('selected') %}checked{% endif %}>
                   </td>
                   <td>
@@ -268,7 +270,7 @@
           </div>
 
           <div class="actions">
-            <button class="primary" type="submit">Make the vouchers</button>
+            <button class="primary" type="submit" id="make-btn">Make the vouchers</button>
             <span class="tiny">Takes a few seconds. Leave this page open.</span>
           </div>
         </form>
@@ -289,6 +291,22 @@
     {{ cfg.venues[-1] }}.
   </footer>
 
+</div>
+
+{# Covers the page while the PDFs are drawn. The work is one long POST, so
+   without this the page just sits there looking broken on a big batch, and a
+   second click on the button issues a second batch of real voucher numbers. #}
+<div class="working" id="working" hidden>
+  <div class="working-card" role="status" aria-live="polite">
+    <h2>Making the vouchers</h2>
+    <div class="bar"><div class="bar-run"></div></div>
+    <p class="working-what" id="working-what"></p>
+    <p class="working-note">
+      A large batch can take a minute or two. Leave this page open and do not
+      press back: the vouchers are being written and their numbers logged.
+    </p>
+    <p class="working-time tiny" id="working-time"></p>
+  </div>
 </div>
 
 {# A preview is rendered from a plain link, so it cannot know what has been
@@ -315,6 +333,64 @@
 
     link.href = url.pathname + url.search;
   });
+
+  (function () {
+    var form = document.getElementById('make-form');
+    if (!form) return;
+
+    var overlay = document.getElementById('working');
+    var what = document.getElementById('working-what');
+    var clock = document.getElementById('working-time');
+    var button = document.getElementById('make-btn');
+    var timer = null;
+
+    var perPage = {{ cfg.vouchers_per_page or 6 }};
+
+    function plural(n, word) {
+      return n + ' ' + word + (n === 1 ? '' : 's');
+    }
+
+    form.addEventListener('submit', function () {
+      var ticked = form.querySelectorAll('input[name="selected"]:checked');
+      // Nothing ticked is refused by the server with a proper message. Showing
+      // the overlay for that would be a flash of "working" over an error.
+      if (!ticked.length) return;
+
+      var vouchers = 0;
+      Array.prototype.forEach.call(ticked, function (box) {
+        vouchers += parseInt(box.getAttribute('data-count'), 10) || 0;
+      });
+
+      what.textContent = plural(vouchers, 'voucher') + ' across '
+        + plural(ticked.length, 'event') + ', about '
+        + plural(Math.ceil(vouchers / perPage), 'page') + ' to draw.';
+
+      overlay.hidden = false;
+
+      var started = Date.now();
+      timer = setInterval(function () {
+        clock.textContent = plural(Math.round((Date.now() - started) / 1000),
+                                   'second') + ' so far.';
+      }, 1000);
+
+      // Out of band, because disabling a submit button inside its own submit
+      // handler cancels the submission in some browsers.
+      setTimeout(function () {
+        button.disabled = true;
+        button.textContent = 'Making them...';
+      }, 0);
+    });
+
+    // Coming back with the back button can restore this page from the cache
+    // with the overlay still up and the button dead. Put it back.
+    window.addEventListener('pageshow', function () {
+      if (timer) { clearInterval(timer); timer = null; }
+      overlay.hidden = true;
+      button.disabled = false;
+      button.textContent = 'Make the vouchers';
+      clock.textContent = '';
+    });
+  })();
 </script>
 
 </body>
