@@ -721,25 +721,50 @@ class Voucher:
     # Where this batch can be spent. Empty means fall back to the configured
     # list, which is what the specimen on the vendor sheet does.
     venues: list[str] = field(default_factory=list)
+    # How many venue lines the artwork will actually print. Carried separately
+    # because the specimen leaves `venues` empty and takes the configured list,
+    # and the layout has to know the count either way.
+    venue_count: int = 0
+
+    @property
+    def squeeze_class(self) -> str:
+        """How hard the rest of the artwork gives way to fit the venue list.
+
+        The venue list is the only thing on a voucher with no fixed length, and
+        the voucher is a fixed 99mm cell, so every venue past the settled three
+        has to be paid for. It is paid for in small steps across the value, the
+        instruction line, the list itself and the code, rather than all at once
+        out of the code, which is what a fourth vendor did in August: the code
+        box hit its floor and printed through the small print above it.
+        """
+        return "" if self.venue_count <= 3 else "squeeze-%d" % min(self.venue_count, 6)
 
     @property
     def code_size_class(self) -> str:
-        """Which type size the code takes, chosen by how long it is.
+        """Which type size the code takes.
 
-        The ID and the ticket count are DMU's to grow. Today a code is 12-01 at
-        five characters; a request numbered 50000 issuing 8000 vouchers is
-        50000-8000 at ten, and there is no ceiling on either. A code wider than
-        its box does not wrap, it runs off the paper, so long ones step down a
-        size instead.
+        Two things push it down a ladder of 27, 22, 18 and 14pt, and whichever
+        pushes harder wins.
 
-        Buckets rather than a calculation because both PDF engines have to agree
+        Length: the ID and the ticket count are DMU's to grow. Today a code is
+        12-01 at five characters; a request numbered 50000 issuing 8000 vouchers
+        is 50000-8000 at ten, and there is no ceiling on either. A code wider
+        than its box does not wrap, it runs off the paper.
+
+        Venues: each one is a line, and the code box gets whatever the list
+        leaves. Measured, not guessed: at four venues the box comes out at
+        15.3mm, which holds 22pt with its padding; at five, 13.8mm and 18pt; at
+        six, 11.9mm and 14pt.
+
+        Steps rather than a calculation because both PDF engines have to agree
         on the answer, and CSS that sizes text to fit its container does not
         survive WeasyPrint.
         """
+        steps = ("", "pt22", "pt18", "pt14")
         n = len(self.dmu_code)
-        if n <= 13:
-            return ""
-        return "long" if n <= 17 else "longest"
+        by_length = 0 if n <= 13 else (1 if n <= 17 else 2)
+        by_venues = max(0, min(self.venue_count, 6) - 3)
+        return steps[min(len(steps) - 1, max(by_length, by_venues))]
 
 
 # --------------------------------------------------------------------------
@@ -772,11 +797,16 @@ SPECIMEN_VALID_UNTIL = "DD Month YYYY"
 SPECIMEN_DMU_CODE = "00-000"
 
 
-def specimen_voucher() -> "Voucher":
+def specimen_voucher(venue_count: int = 0) -> "Voucher":
     """The example voucher the vendor sheet shows and quotes.
 
     Fixed, and carrying the specimen code rather than a real one, so the code on
     the handout can never be one that was really issued to somebody.
+
+    `venue_count` is how many venues the configured list holds. The specimen
+    prints that list, so it has to be squeezed to the same degree the real
+    artwork would be, or the handout shows a voucher laid out differently to the
+    ones in the envelope.
     """
     return Voucher(
         dmu_code=SPECIMEN_DMU_CODE,
@@ -788,6 +818,7 @@ def specimen_voucher() -> "Voucher":
         # picked venues must not reach the handout, or the fingerprint below
         # would change with every print run.
         venues=[],
+        venue_count=venue_count,
     )
 
 
@@ -942,6 +973,7 @@ def build_vouchers(request: VoucherRequest, venues: list[str] | None = None,
             valid_until=format_uk_date(request.expiry_date),
             event_date=format_uk_date(request.event_date),
             venues=list(venues or []),
+            venue_count=len(venues or []),
         )
         for ticket in range(1, request.count + 1)
     ]

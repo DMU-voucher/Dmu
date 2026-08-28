@@ -233,6 +233,32 @@ with it.** Both were raised and accepted, and both matter when reconciling:
   the batch. What actually prevents reuse is the vendor keeping the paper, which
   the vendor sheet already says in bold.
 
+### How big the code prints, and why it changes
+
+27pt at the settled three venues, stepping down a ladder to 22, 18 and 14pt.
+Two things push it down and the harder one wins:
+
+- **A long code.** IDs and counts have no ceiling. `50000-8000` is ten
+  characters and `123456789-123456789` is nineteen, and a code does not wrap,
+  it runs off the paper.
+- **A long venue list.** A print run can add a vendor of its own, and each
+  venue is another line on a voucher that cannot get any taller. At four
+  venues the artwork gives way in small steps across the value, the
+  instruction line, the list and the code together, rather than taking it all
+  out of the code.
+
+The sizes are measured rather than chosen: the code box comes out at 17.5mm
+with three venues, 16.1mm with four, 15.4mm with five and 13.8mm with six, and
+each step of the ladder fits its box with a millimetre and a half to spare.
+`check_pdf_engine.py` draws all of those combinations and measures them, so a
+change here that stops fitting fails the check rather than reaching paper.
+
+**A fourth vendor is what broke this in August 2026.** The code box had a 13mm
+floor, which is not protection when the thing inside it cannot shrink: the box
+stopped at 13mm holding 14.4mm of code, and the difference printed straight
+through the small print above. The floor is gone and the code steps down
+instead.
+
 Ledger rows written before the change still carry their old reference in a
 `voucher_code` column, kept rather than dropped: those numbers are on vouchers
 that may still be in circulation.

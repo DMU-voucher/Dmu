@@ -156,7 +156,7 @@ def render_vendor_sheet(config: dict) -> str:
     """The handout. Always shows the fixed specimen rather than a voucher out of
     the batch, so the sheet never quotes a number that was really issued."""
     return render_template("vendor.html",
-                           specimen=core.specimen_voucher(),
+                           specimen=core.specimen_voucher(len(config.get("venues") or [])),
                            thumbnail=thumbnail_uri(),
                            **render_context(config))
 
@@ -164,7 +164,7 @@ def render_vendor_sheet(config: dict) -> str:
 def render_thumbnail_page(config: dict) -> str:
     """The specimen voucher alone, for make_sample_thumbnail.py to photograph."""
     return render_template("thumbnail.html",
-                           specimen=core.specimen_voucher(),
+                           specimen=core.specimen_voucher(len(config.get("venues") or [])),
                            **render_context(config))
 
 

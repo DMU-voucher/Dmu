@@ -187,8 +187,13 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 0.8mm;
-  min-height: 13mm;
-  padding: 2mm;
+  /* No floor. A floor on a box whose contents cannot shrink is not protection:
+     at four venues this was pinned at 13mm holding 14.4mm of code, and the
+     difference printed straight through the small print above it. The code
+     steps down with the venue count in Voucher.code_size_class instead, and
+     this box takes whatever the layout leaves it. */
+  min-height: 0;
+  padding: 1.2mm;
   border: 0.3mm solid var(--dmu-red);
   border-radius: 0.8mm;
   background: var(--red-wash);
@@ -226,15 +231,39 @@ html, body {
    be more again. The code never wraps, so width has to be bought with points.
    Which class applies is decided in Voucher.code_size_class, because both PDF
    engines have to agree and WeasyPrint has no way to size text to its box. */
-.v-ref-number.long {
-  font-size: 21pt;
-  letter-spacing: 0.05em;
+.v-ref-number.pt22 {
+  font-size: 22pt;
+  letter-spacing: 0.06em;
 }
 
-.v-ref-number.longest {
-  font-size: 16pt;
+.v-ref-number.pt18 {
+  font-size: 18pt;
+  letter-spacing: 0.04em;
+}
+
+.v-ref-number.pt14 {
+  font-size: 14pt;
   letter-spacing: 0.03em;
 }
+
+/* Four venues and up. Every venue past the settled three is another line on a
+   voucher that cannot get any taller, so the artwork gives way in small steps
+   across four places rather than taking it all out of the code. The numbers are
+   measured: they leave the code box 15.3mm at four venues, 13.8mm at five and
+   11.9mm at six, which is what the ladder in code_size_class is sized against.
+   Three venues, today's list, reaches none of this. */
+
+.squeeze-4 .v-venues li { font-size: 8.4pt; margin-bottom: 0.3mm; }
+.squeeze-4 .v-value { font-size: 22pt; }
+.squeeze-4 .v-action { font-size: 7.2pt; padding: 0.9mm 1.8mm; }
+
+.squeeze-5 .v-venues li { font-size: 7.6pt; margin-bottom: 0.2mm; }
+.squeeze-5 .v-value { font-size: 20pt; }
+.squeeze-5 .v-action { font-size: 6.8pt; padding: 0.9mm 1.8mm; }
+
+.squeeze-6 .v-venues li { font-size: 7pt; margin-bottom: 0.2mm; }
+.squeeze-6 .v-value { font-size: 19pt; }
+.squeeze-6 .v-action { font-size: 6.6pt; padding: 0.8mm 1.8mm; }
 
 .v-where {
   flex: 1 1 auto;

@@ -2,7 +2,9 @@
    instruction sheet, so there is only ever one definition of the artwork. #}
 
 {% macro voucher(v, cfg, logos) %}
-<div class="voucher">
+{# squeeze_class is empty for the settled three venues, so the artwork is
+   untouched until a print run adds a fourth. #}
+<div class="voucher {{ v.squeeze_class }}">
 
   {# DMU's own lockup, alone. Food and Drink has no mark of its own, so the
      orange stand-in that used to sit on the left was not waiting for artwork,

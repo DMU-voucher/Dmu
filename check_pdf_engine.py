@@ -97,10 +97,12 @@ def main() -> int:
     # A second sheet of deliberately awkward vouchers: the longest codes the
     # scheme can produce, and an event name past the truncation point. A batch
     # of 12-01s proves nothing about what happens when DMU's IDs grow.
-    def awkward(code: str, name: str) -> core.Voucher:
+    def awkward(code: str, name: str, places: list[str] | None = None) -> core.Voucher:
+        places = venues if places is None else places
         return core.Voucher(dmu_code=code, value_display="£6.00", event_name=name,
                             valid_until="30 September 2026",
-                            event_date="10 September 2026", venues=venues)
+                            event_date="10 September 2026", venues=places,
+                            venue_count=len(places))
 
     stress = [
         awkward("50000-8000", "Five figure ID, four figure ticket"),
@@ -112,15 +114,34 @@ def main() -> int:
         awkward("12-02", "Short"),
     ]
 
+    # A third sheet, for the one thing on a voucher with no fixed length. A
+    # print run can add vendors of its own, and each one is another line on a
+    # cell that cannot get any taller. In August 2026 a fourth vendor pushed the
+    # code box past its floor and the code printed through the small print
+    # above, so every count the artwork claims to handle is drawn here.
+    more = venues + ["Hello", "The Gateway Kitchen", "Campus Coffee Co"]
+    crowded = [
+        awkward("12-01", "Four venues, one added at print time", more[:4]),
+        awkward("12-02", "Five venues", more[:5]),
+        awkward("12-03", "Six venues", more[:6]),
+        awkward("50000-8000", "Six venues and a long code", more[:6]),
+        awkward("123456789-123456789", "Six venues and the longest code",
+                more[:6]),
+        awkward("12-04", "Four venues and an event name long enough to be "
+                         "truncated rather than run off the voucher", more[:4]),
+    ]
+
     # Importing the Flask app only for its template rendering.
     import app as generator
     with generator.app.test_request_context():
         sheet_html = generator.render_sheet(vs, config, "Engine check")
         stress_html = generator.render_sheet(stress, config, "Awkward codes")
+        crowded_html = generator.render_sheet(crowded, config, "Crowded vouchers")
         vendor_html = generator.render_vendor_sheet(config)
 
     OUT.mkdir(parents=True, exist_ok=True)
-    jobs = [("sheet", sheet_html), ("stress", stress_html), ("vendor", vendor_html)]
+    jobs = [("sheet", sheet_html), ("stress", stress_html),
+            ("crowded", crowded_html), ("vendor", vendor_html)]
 
     with core.PdfWriter() as writer:
         print()
@@ -139,7 +160,7 @@ def main() -> int:
             print("  The engine reported nothing it could not draw.")
 
     problems: list[str] = []
-    for name in ("sheet", "stress"):
+    for name in ("sheet", "stress", "crowded"):
         problems += check_layout(OUT / f"{name}.pdf", config, name)
 
     print()
@@ -223,14 +244,22 @@ def check_layout(path: Path, config: dict, label: str) -> list[str]:
                                 f"{where}: {_short(text_a)} is printed on top of "
                                 f"{_short(text_b)}")
 
-                code_box = _code_box(cell, boxes, here, code_label)
+                code_box = _code_box(cell, boxes, here, code_label, fitz)
                 if code_box is None:
                     problems.append(f"{where}: no {code_label!r} box found")
                     continue
                 for rect, text in here:
-                    if code_box.contains(_shrink(rect, fitz)):
-                        continue  # the label and the code itself live in there
-                    if _shrink(rect, fitz).intersects(code_box):
+                    shrunk = _shrink(rect, fitz)
+                    if _centre_in(rect, code_box):
+                        # The label and the code. These belong in the box, so
+                        # what matters is whether they fit inside it. The code
+                        # hanging out of the bottom is what a voucher squeezed
+                        # past its limit looks like.
+                        if not code_box.contains(shrunk):
+                            problems.append(
+                                f"{where}: {_short(text)} does not fit inside "
+                                f"the {code_label} box")
+                    elif shrunk.intersects(code_box):
                         problems.append(
                             f"{where}: {_short(text)} is printed over the "
                             f"{code_label} box")
@@ -280,13 +309,34 @@ def _buried(a, b) -> float:
     return abs(overlap.get_area()) / smaller if smaller else 0.0
 
 
-def _code_box(cell, boxes, spans, code_label):
-    """The red panel, found as the smallest drawn box holding the code label."""
+def _code_box(cell, boxes, spans, code_label, fitz):
+    """The red panel: the smallest drawn box the code label sits in.
+
+    Found by the label's centre rather than by containing the label outright.
+    A tight panel and a glyph box that reaches a fraction above the border is
+    enough for containment to fail, and it used to fail quietly: the only other
+    box that held the label was the voucher's own border, so the panel checks
+    went on running against a rectangle the size of the whole voucher and passed
+    everything. That is how a four venue voucher printed its code straight
+    through the small print with the check reporting nothing wrong.
+
+    So the voucher border is excluded by size, and finding nothing is reported
+    rather than substituted for.
+    """
     label_rect = next((r for r, t in spans if t == code_label and cell.contains(r)), None)
     if label_rect is None:
         return None
-    holding = [b for b in boxes if b.contains(label_rect) and cell.contains(b)]
+    half = abs(cell.get_area()) / 2
+    holding = [b for b in boxes
+               if cell.contains(b) and abs(b.get_area()) < half
+               and _centre_in(label_rect, b)]
     return min(holding, key=lambda b: abs(b.get_area())) if holding else None
+
+
+def _centre_in(rect, box) -> bool:
+    """Is the middle of this text inside that box?"""
+    return (box.x0 <= (rect.x0 + rect.x1) / 2 <= box.x1
+            and box.y0 <= (rect.y0 + rect.y1) / 2 <= box.y1)
 
 
 def _shrink(rect, fitz):
