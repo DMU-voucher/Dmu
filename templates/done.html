@@ -92,18 +92,23 @@
   <div class="panel">
     <h2 style="margin-bottom:12px">Before you print</h2>
     <ul style="margin:0; padding-left:22px; font-size:15px; line-height:1.6">
-      <li>Print <strong>Print sheet.pdf</strong> at <strong>100% scale</strong>, not
+      <li>Print the <strong>print sheet</strong> at <strong>100% scale</strong>, not
         "fit to page", or the vouchers will come out the wrong size.</li>
       <li>Cut along the dashed guides. Six vouchers per A4 sheet.</li>
-      <li>Each batch above is <strong>one request in one folder</strong>, named with
-        its ID, so it can be sent to whoever asked for it as it stands. Every
+      {# The files are named for their batch now, so a folder can be sent on as
+         it stands and two batches cannot be mixed up once they are unzipped. #}
+      <li>Each batch above is <strong>one request in one folder</strong>, holding
+        its print sheet and its summary, both named for the event and its ID.
+        Send the folder to whoever asked for the vouchers as it stands. Every
         code inside starts with that same ID.</li>
       {# Was two vendors by name, which went stale the moment a third was added.
          This run's own list instead. #}
-      <li>Give <strong>Vendor instructions.pdf</strong> to
+      <li><a href="{{ url_for('vendor_instructions') }}">Download the vendor
+        sheet</a> and give it to
         {{ venues[:-1]|join(', ') }}{% if venues|length > 1 %} and {% endif %}{{ venues[-1] }}.
-        There is nothing for them to sign in to.</li>
-      <li><strong>Batch summary.csv</strong> lists every code in the batch with
+        It is the same one page for every batch, which is why it is no longer
+        inside the folders. There is nothing for the vendor to sign in to.</li>
+      <li>The <strong>batch summary</strong> lists every code in the batch with
         blank columns for recording redemptions by hand. Use it to reconcile the
         form's responses afterwards, or on paper at the counter if a vendor
         cannot get online.</li>
@@ -112,6 +117,8 @@
 
   <div class="actions">
     <a class="btn primary" href="{{ url_for('index') }}">Make some more</a>
+    <a class="btn secondary" href="{{ url_for('vendor_instructions') }}">Vendor
+      instructions (PDF)</a>
   </div>
 
 </div>

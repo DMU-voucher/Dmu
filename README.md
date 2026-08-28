@@ -66,7 +66,7 @@ Two consequences worth knowing:
 
 The code in the red box is DMU's own: the export's **ID** column, a hyphen, and
 the voucher's place in that request. Request 12 for 40 vouchers prints `12-01` to
-`12-40`. It is on the voucher, in `Batch summary.csv` and in the ledger, and it
+`12-40`. It is on the voucher, in the batch summary and in the ledger, and it
 is the only thing that says which voucher this is.
 
 **A row with no ID is refused**, and appears under "Rows not used" saying so.
@@ -85,10 +85,22 @@ Output\2026-08-28 ID 12 Test 5\
 
 | File | What it is |
 | --- | --- |
-| `Print sheet.pdf` | A4 sheets, six vouchers per page, dashed cut guides. **Print at 100% scale, not "fit to page".** |
-| `Vendor instructions.pdf` | One page to give each vendor this run is redeemable at. |
-| `Batch summary.csv` | Every code in the batch, plus blank columns for recording redemptions by hand. Also records the DMU ID and which vendors the run was for. |
-| `Source export - ....csv` | A copy of the exact file that was dropped in. |
+| `Print sheet - Test 5 ID 12.pdf` | A4 sheets, six vouchers per page, dashed cut guides. **Print at 100% scale, not "fit to page".** |
+| `Batch summary - Test 5 ID 12.csv` | Every code in the batch, plus blank columns for recording redemptions by hand. Also records the DMU ID and which vendors the run was for. |
+
+Two files, both named for the event and its ID, so a folder can be sent to
+whoever asked for the vouchers exactly as it stands and two batches cannot be
+confused once they are unzipped.
+
+Two things that used to be in here are not any more:
+
+- **The vendor sheet.** It is the same single page for every batch in a run, and
+  it goes to vendors rather than to the requestor. Download it from the link on
+  the done page or the bottom of the front page.
+- **A copy of the approval export.** It was the whole uploaded file, so sending
+  one requestor their folder showed them every other request in it, with values,
+  cost centres and approvers. The file that was dropped in is still kept in
+  `Uploads\` for the audit trail, and the summary carries that row's own detail.
 
 And `Ledger\issued_vouchers.csv` gains a row per voucher. That file is the record
 of everything ever issued. Do not delete it: it is both the audit trail and what
@@ -118,7 +130,7 @@ picture on the vendor sheet goes out of date and has to be remade. See below.
 
 **There is no QR code on a voucher.** The code is the same for all 500 of them,
 so printing it 500 times was waste and the vendor bookmarks the page after one
-scan anyway. It is printed once, at 45mm, on `Vendor instructions.pdf`. If
+scan anyway. It is printed once, at 45mm, on the vendor sheet. If
 `qr_url` is still a placeholder, that sheet prints with a note where the code
 should be; the vouchers themselves are unaffected.
 
@@ -267,7 +279,7 @@ that may still be in circulation.
 
 `Ledger\issued_vouchers.csv` says what went out. Compare it, on the voucher
 number, against however redemptions are being collected: the Microsoft Form's
-response spreadsheet, or the `Batch summary.csv` sheets if they were filled in on
+response spreadsheet, or the batch summaries if they were filled in on
 paper.
 
 A number in the responses that is not in the ledger was either mis-typed or was

@@ -925,6 +925,28 @@ def safe_folder_name(name: str) -> str:
     return cleaned[:80] or "Event"
 
 
+def batch_file_name(kind: str, event_name: str, dmu_id: str, suffix: str) -> str:
+    """"Print sheet - Test 5 ID 12.pdf", for a file that leaves the folder.
+
+    Two batches used to write two files called Print sheet.pdf. Download both
+    and there are two identical names in one downloads folder with no way to
+    tell which request either belongs to, which is what prompted this.
+
+    The event name is cut shorter here than in a folder name. This sits inside
+    an already long folder path and Windows still stops at 260 characters for
+    the whole thing. A row with neither a name nor an ID falls back to the plain
+    name the file had before: a poor file name, but never an invalid one.
+    """
+    name = safe_folder_name(event_name)[:40].strip() if event_name.strip() else ""
+    tail = []
+    if name and name != "Event":
+        tail.append(name)
+    if str(dmu_id).strip():
+        tail.append("ID " + safe_folder_name(str(dmu_id))[:20].strip())
+    stem = kind if not tail else kind + " - " + " ".join(tail)
+    return stem + suffix
+
+
 def resolve_venues(config: dict, selected: list[str] | None,
                    extra: str = "") -> list[str]:
     """Where this batch can be spent: the ticked venues plus any one-off typed in.
@@ -1139,6 +1161,21 @@ def unique_output_dir(event_name: str, when: datetime, dmu_id: str = "") -> Path
     return candidate
 
 
+def excel_text(value: str) -> str:
+    """A value Excel will not try to be clever about.
+
+    Excel reads 12-01 out of a CSV as the first of December and 006 as 6, and
+    there is nothing in the CSV format itself to say otherwise: quoting is
+    syntax, not a type. Wrapping the value as a formula that evaluates to a
+    string is the way round it that Excel and Google Sheets both understand. The
+    cost is that a plain text editor shows the wrapper.
+
+    Only for files a person opens. The ledger is read back by read_ledger, so a
+    formula wrapper in that one would be a bug rather than a fix.
+    """
+    return '="%s"' % str(value).replace('"', '""')
+
+
 def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Voucher],
                         batch: int, issued_by: str, issued_at: datetime,
                         venues: list[str] | None = None) -> None:
@@ -1155,21 +1192,13 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
         writer.writerow(["Event date", format_uk_date(request.event_date)])
         writer.writerow(["Valid until", format_uk_date(request.expiry_date)])
         writer.writerow(["Redeemable at", ", ".join(venues or [])])
-        writer.writerow(["Batch", f"{batch:03d}"])
+        writer.writerow(["Batch", excel_text(f"{batch:03d}")])
         writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M")])
         writer.writerow(["Issued by", issued_by])
         writer.writerow([])
         writer.writerow(["Voucher code", "Value", "Redeemed at", "Date redeemed"])
         for v in vouchers:
-            writer.writerow([v.dmu_code, v.value_display, "", ""])
-
-
-def copy_source_csv(source: Path | None, dest_dir: Path) -> None:
-    if source and source.is_file():
-        try:
-            shutil.copy2(source, dest_dir / f"Source export - {source.name}")
-        except OSError:
-            pass
+            writer.writerow([excel_text(v.dmu_code), v.value_display, "", ""])
 
 
 def open_folder(path: Path) -> None:

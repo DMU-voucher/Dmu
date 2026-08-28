@@ -15,6 +15,7 @@ import mimetypes
 import os
 import re
 import secrets
+import tempfile
 import time
 import traceback
 import zipfile
@@ -391,6 +392,40 @@ def preview_vendor():
     return render_vendor_sheet(config)
 
 
+@app.get("/vendor-instructions.pdf")
+def vendor_instructions():
+    """The vendor handout, on its own.
+
+    It used to be written into every batch folder, which meant the requestor's
+    zip carried a sheet meant for vendors and the office had four copies of the
+    same page. Taking it out of the folder needed this first: on the hosted copy
+    the batch zip was the only way to get it as a PDF at all, since the preview
+    above is HTML and the loose copy beside the records is never served.
+
+    Rendered fresh rather than served from LOOSE_VENDOR_PDF, so it always
+    matches what config.json says today. It is one page, and it is the same
+    sheet whichever batch you came from.
+    """
+    config = core.load_config()
+    try:
+        with core.PdfWriter() as writer:
+            buf = io.BytesIO()
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "Vendor instructions.pdf"
+                writer.write(render_vendor_sheet(config), path)
+                buf.write(path.read_bytes())
+        buf.seek(0)
+    except Exception:
+        traceback.print_exc()
+        return _index_with_error(
+            "The vendor sheet could not be drawn. The details are in the window "
+            "running the app. The vouchers themselves are unaffected: this is "
+            "the handout, and it can also be printed from the preview link at "
+            "the bottom of this page.")
+    return send_file(buf, mimetype="application/pdf", as_attachment=True,
+                     download_name="Vendor instructions.pdf")
+
+
 @app.post("/generate")
 def generate():
     token = request.form.get("token", "")
@@ -456,16 +491,25 @@ def generate():
                 out_dir = core.unique_output_dir(req.event_name, issued_at, req.dmu_id)
                 out_dir.mkdir(parents=True, exist_ok=True)
 
-                sheet_pdf = out_dir / "Print sheet.pdf"
+                # Named for the batch, because these files leave the folder:
+                # two batches downloaded as two zips used to unpack into two
+                # files called Print sheet.pdf.
+                sheet_pdf = out_dir / core.batch_file_name(
+                    "Print sheet", req.event_name, req.dmu_id, ".pdf")
                 writer.write(render_sheet(vs, config, req.event_name), sheet_pdf)
 
-                writer.write(render_vendor_sheet(config),
-                             out_dir / "Vendor instructions.pdf")
+                core.write_batch_summary(
+                    out_dir / core.batch_file_name(
+                        "Batch summary", req.event_name, req.dmu_id, ".csv"),
+                    req, vs, batch, issued_by, issued_at, venues)
 
-                core.write_batch_summary(out_dir / "Batch summary.csv", req, vs,
-                                         batch, issued_by, issued_at, venues)
-                src = session.get("source_csv")
-                core.copy_source_csv(Path(src) if src else None, out_dir)
+                # No vendor sheet and no copy of the export in here. The vendor
+                # sheet is the same handout for every batch in the run and goes
+                # to vendors rather than to the requestor, so it is downloaded
+                # on its own from the done page. The export copy was the whole
+                # uploaded file, so sending one requestor their folder showed
+                # them every other request in it; the file itself is still kept
+                # in Uploads for the audit trail.
 
                 core.append_ledger([{
                     "dmu_code": v.dmu_code,

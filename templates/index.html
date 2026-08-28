@@ -268,7 +268,8 @@
       {{ ledger_count }} voucher{{ '' if ledger_count == 1 else 's' }} issued to date{% if last_issued %}, most recently on {{ last_issued }}{% endif %}.
       <a href="{{ url_for('ledger_csv') }}" target="_blank">View the log</a> &middot;
     {% endif %}
-    <a href="{{ url_for('preview_vendor') }}" target="_blank">Vendor instruction sheet</a>
+    <a href="{{ url_for('vendor_instructions') }}">Vendor instruction sheet</a>
+    (<a href="{{ url_for('preview_vendor') }}" target="_blank">look at it first</a>)
     &middot; Redeemable at
     {{- ' ' }}{{ cfg.venues[:-1]|join(', ') }}
     {%- if cfg.venues|length > 1 %} and {% endif -%}
