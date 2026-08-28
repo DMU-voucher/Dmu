@@ -1090,9 +1090,14 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
         writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M %Z")])
         writer.writerow(["Issued by", issued_by])
         writer.writerow([])
-        writer.writerow(["Voucher code", "Value", "Redeemed at", "Date redeemed"])
+        # Code and value only. There were two empty columns here, "Redeemed
+        # at" and "Date redeemed", for writing redemptions back in by hand.
+        # Redemptions are recorded on the Microsoft Form the vendor scans,
+        # so the columns were never filled and only invited a second,
+        # disagreeing record of what had been spent.
+        writer.writerow(["Voucher code", "Value"])
         for v in vouchers:
-            writer.writerow([excel_text(v.dmu_code), v.value_display, "", ""])
+            writer.writerow([excel_text(v.dmu_code), v.value_display])
 
 
 def open_folder(path: Path) -> None:
