@@ -55,9 +55,9 @@ load_env_file()
 # folder, and refuse to serve anything at all if the password is missing.
 os.environ["DMU_HOSTED"] = "1"
 
-# The ledger, the finished batches and the uploaded CSVs. Outside the repository
-# folder, or deploying a new version takes the record of every voucher ever
-# issued with it. Override in .env if the account layout differs.
+# The finished batches and the uploaded CSVs. Outside the repository folder, or
+# deploying a new version takes the finished batches with it. Override in .env
+# if the account layout differs.
 os.environ.setdefault("DMU_DATA_DIR", str(Path.home() / "dmu-voucher-data"))
 
 # Chromium is 427 MB against a free account's 512 MB, so a server draws PDFs

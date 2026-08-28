@@ -22,7 +22,7 @@ import segno
 
 APP_DIR = Path(__file__).resolve().parent
 
-# Everything the app writes lives under here: the ledger, the finished batches,
+# Everything the app writes lives under here: the finished batches,
 # the uploaded CSVs. On a server point DMU_DATA_DIR at a folder OUTSIDE the
 # repository, or deploying a new version takes the record of every voucher ever
 # issued with it. Unset, which is how the office machine runs, it all sits next
@@ -30,7 +30,6 @@ APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DMU_DATA_DIR") or APP_DIR)
 
 CONFIG_PATH = APP_DIR / "config.json"
-LEDGER_PATH = DATA_DIR / "Ledger" / "issued_vouchers.csv"
 OUTPUT_DIR = DATA_DIR / "Output"
 ASSETS_DIR = APP_DIR / "assets"
 
@@ -51,24 +50,6 @@ LOOSE_VENDOR_PDF = DATA_DIR / "Vendor instructions.pdf"
 
 PLACEHOLDER_QR_URL = "PASTE THE MICROSOFT FORM ADDRESS HERE"
 
-LEDGER_FIELDS = [
-    # The code printed on the voucher, and the only thing identifying it. The
-    # random DMU-482-173-906 reference this replaced is gone, but rows written
-    # before that carry one and _migrate_ledger_header keeps their column: those
-    # numbers are on paper in circulation and are not ours to drop.
-    "dmu_code",
-    "batch",
-    "event_name",
-    "cost_centre",
-    "value_pence",
-    "valid_until",
-    "event_date",
-    "budget_approver",
-    "lead_contact",
-    "issued_at",
-    "issued_by",
-    "output_folder",
-]
 
 
 # --------------------------------------------------------------------------
@@ -446,117 +427,6 @@ def parse_csv(text: str) -> ParseResult:
 
 
 # --------------------------------------------------------------------------
-# Ledger
-# --------------------------------------------------------------------------
-
-def read_ledger() -> list[dict]:
-    if not LEDGER_PATH.exists():
-        return []
-    with open(LEDGER_PATH, newline="", encoding="utf-8-sig") as fh:
-        return [row for row in csv.DictReader(fh)]
-
-
-def _next_batch_number(ledger: list[dict]) -> int:
-    highest = 0
-    for row in ledger:
-        n = parse_int(row.get("batch", ""))
-        if n and n > highest:
-            highest = n
-    return highest + 1
-
-
-def previous_issue(request: VoucherRequest, ledger: list[dict] | None = None) -> dict | None:
-    """Has this exact request been issued before? Guards against a re-drop."""
-    ledger = read_ledger() if ledger is None else ledger
-    matches: dict[str, list[dict]] = {}
-    for row in ledger:
-        key = "|".join([
-            (row.get("event_name") or "").strip().lower(),
-            (row.get("cost_centre") or "").strip(),
-            (row.get("value_pence") or "").strip(),
-        ])
-        matches.setdefault(key, []).append(row)
-
-    key = "|".join([
-        request.event_name.strip().lower(),
-        request.cost_centre.strip(),
-        str(request.value_pence),
-    ])
-    rows = matches.get(key)
-    if not rows:
-        return None
-
-    by_batch: dict[str, list[dict]] = {}
-    for row in rows:
-        by_batch.setdefault(row.get("batch", ""), []).append(row)
-
-    for batch, batch_rows in sorted(by_batch.items(), key=lambda kv: parse_int(kv[0]) or 0, reverse=True):
-        if len(batch_rows) == request.count:
-            issued_at = (batch_rows[0].get("issued_at") or "").split("T")[0]
-            return {
-                "batch": batch,
-                "count": len(batch_rows),
-                "issued_at": issued_at,
-                # dmu_code on anything issued since the codes changed, and the
-                # old random reference on rows written before that, which are
-                # still the numbers printed on those vouchers.
-                "codes": [(r.get("dmu_code") or r.get("voucher_code") or "")
-                          for r in batch_rows],
-                "output_folder": batch_rows[0].get("output_folder", ""),
-            }
-    return None
-
-
-def _migrate_ledger_header() -> list[str]:
-    """Bring an older ledger up to the current columns, and say what to write with.
-
-    append_ledger only writes a header when the file is new, so adding a column
-    to LEDGER_FIELDS would otherwise append wider rows underneath the old,
-    narrower header. Every reader of the file, this app included, would then
-    misread the extra value. The fix has to happen before the first append, and
-    it has to happen on the server, where the ledger already has real rows in it.
-
-    Columns the file has that this version does not know about are kept rather
-    than dropped, so a ledger written by a newer copy of the app is never
-    silently narrowed by an older one.
-    """
-    if not LEDGER_PATH.exists():
-        return list(LEDGER_FIELDS)
-
-    with open(LEDGER_PATH, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
-        existing = [c for c in (reader.fieldnames or []) if c]
-        if existing == LEDGER_FIELDS:
-            return list(LEDGER_FIELDS)
-        rows = list(reader)
-
-    fields = LEDGER_FIELDS + [c for c in existing if c not in LEDGER_FIELDS]
-
-    stamp = datetime.now().strftime("%Y-%m-%d-%H%M")
-    backup = LEDGER_PATH.with_name(f"{LEDGER_PATH.stem}.bak-{stamp}{LEDGER_PATH.suffix}")
-    shutil.copy2(LEDGER_PATH, backup)
-
-    with open(LEDGER_PATH, "w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fields)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({k: (row.get(k) or "") for k in fields})
-    return fields
-
-
-def append_ledger(rows: list[dict]) -> None:
-    LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    new_file = not LEDGER_PATH.exists()
-    fields = list(LEDGER_FIELDS) if new_file else _migrate_ledger_header()
-    with open(LEDGER_PATH, "a", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fields)
-        if new_file:
-            writer.writeheader()
-        for row in rows:
-            writer.writerow({k: row.get(k, "") for k in fields})
-
-
-# --------------------------------------------------------------------------
 # QR code
 # --------------------------------------------------------------------------
 
@@ -668,11 +538,10 @@ def record_pace(vouchers: int, seconds: float) -> None:
         fixed = seconds * 0.3
         per = seconds * 0.7 / vouchers
 
-    # Swallowed on purpose. This is called after the vouchers are written and
-    # the ledger is updated, so a read-only data folder or a full disk must not
-    # be allowed to turn a finished run into the error page that says nothing
-    # was written anywhere. The cost of losing this file is a progress bar that
-    # guesses.
+    # Swallowed on purpose. This is called after the vouchers are written, so a
+    # read-only data folder or a full disk must not be allowed to turn a
+    # finished run into the error page that says nothing was written anywhere.
+    # The cost of losing this file is a progress bar that guesses.
     try:
         PACE_PATH.parent.mkdir(parents=True, exist_ok=True)
         PACE_PATH.write_text(json.dumps({
@@ -893,21 +762,6 @@ def thumbnail_state(config: dict) -> str:
 # --------------------------------------------------------------------------
 # References
 # --------------------------------------------------------------------------
-
-def already_issued_codes(codes: list[str], ledger: list[dict] | None = None) -> list[str]:
-    """Which of these codes are already in the ledger, in order, deduplicated.
-
-    Codes are no longer drawn, they are derived from the export's ID and the
-    ticket number, so the same request produces the same codes every time it is
-    run. Re-issuing is allowed, but it has to be said out loud: the second set
-    carries codes identical to vouchers already in circulation and no vendor
-    could tell the two apart.
-    """
-    ledger = read_ledger() if ledger is None else ledger
-    seen = {(row.get("dmu_code") or "").strip() for row in ledger}
-    seen.discard("")
-    return [c for c in codes if c in seen]
-
 
 def format_uk_date(value: str) -> str:
     """'2026-09-30' -> '30 September 2026'. Passes anything unparseable through."""
@@ -1170,15 +1024,22 @@ def excel_text(value: str) -> str:
     string is the way round it that Excel and Google Sheets both understand. The
     cost is that a plain text editor shows the wrapper.
 
-    Only for files a person opens. The ledger is read back by read_ledger, so a
-    formula wrapper in that one would be a bug rather than a fix.
+    Only for files a person opens. Anything the app reads back would be broken
+    by a formula wrapper rather than helped by one.
     """
     return '="%s"' % str(value).replace('"', '""')
 
 
 def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Voucher],
-                        batch: int, issued_by: str, issued_at: datetime,
+                        issued_by: str, issued_at: datetime,
                         venues: list[str] | None = None) -> None:
+    """The batch's own record, and now the only one the app keeps.
+
+    There is no batch number any more. It was a running count out of the
+    ledger, and with the ledger gone there is nothing to count against. The
+    event, the ID and the date identify a batch, and every code inside it
+    starts with that ID.
+    """
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["Event", request.event_name])
@@ -1192,7 +1053,6 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
         writer.writerow(["Event date", format_uk_date(request.event_date)])
         writer.writerow(["Valid until", format_uk_date(request.expiry_date)])
         writer.writerow(["Redeemable at", ", ".join(venues or [])])
-        writer.writerow(["Batch", excel_text(f"{batch:03d}")])
         writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M")])
         writer.writerow(["Issued by", issued_by])
         writer.writerow([])

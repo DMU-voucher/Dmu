@@ -43,7 +43,13 @@ HOSTED = os.environ.get("DMU_HOSTED", "").strip().lower() in ("1", "true", "yes"
 # One password in front of the whole site. Empty is the office machine, where
 # run.bat binds to 127.0.0.1 and the only way in is to be sitting at it. Hosted
 # it is mandatory, and site_gate below refuses to serve anything without it.
-SITE_USER = os.environ.get("DMU_SITE_USER", "dmu")
+#
+# There is no username to get wrong. A browser's sign-in box asks for one
+# because that is what HTTP basic authentication is, but it is not a secret and
+# it never was: only the password is checked. Two names were in play here at
+# once in August 2026, the app's and PythonAnywhere's own, and the prompt gives
+# no clue which is which, so signing in became a guessing game that locked the
+# site's owner out of it.
 SITE_PASSWORD = os.environ.get("DMU_SITE_PASSWORD", "")
 
 
@@ -60,8 +66,7 @@ def site_gate():
 
     Hosted with no password set, every route is refused rather than served. An
     open copy of this app prints DMU vouchers for anyone who finds the address,
-    and /ledger hands over every number ever issued, so a misconfigured copy has
-    to fail loudly instead of quietly working.
+    so a misconfigured copy has to fail loudly instead of quietly working.
     """
     if not SITE_PASSWORD:
         if HOSTED:
@@ -72,17 +77,15 @@ def site_gate():
         return None
 
     auth = request.authorization
-    supplied_user = (auth.username or "") if auth else ""
-    supplied_pass = (auth.password or "") if auth else ""
+    supplied = (auth.password or "") if auth else ""
 
-    # compare_digest on both, and both always evaluated, so a wrong password
-    # takes the same time as a right one and neither can be timed against the
-    # other.
-    user_ok = secrets.compare_digest(supplied_user, SITE_USER)
-    pass_ok = secrets.compare_digest(supplied_pass, SITE_PASSWORD)
-    if user_ok and pass_ok:
+    # compare_digest rather than ==, so a wrong password takes the same time as
+    # a right one and cannot be found a character at a time.
+    if secrets.compare_digest(supplied, SITE_PASSWORD):
         return None
-    return Response("Sign in to use the voucher generator.", 401,
+    return Response("Sign in to use the voucher generator. The username is not "
+                    "checked: put anything in it, and the site password in the "
+                    "password box.", 401,
                     {"WWW-Authenticate": 'Basic realm="DMU vouchers"'})
 
 # Food and Drink has no mark of its own, so there is only one logo to find. The
@@ -217,8 +220,8 @@ def load_session(token: str) -> dict | None:
 
 def _sweep_sessions(older_than_hours: int = 24) -> None:
     """An upload is working state, not a record: the CSV itself is kept in
-    Uploads and the vouchers in the ledger. Anything still here a day later was
-    abandoned."""
+    Uploads and the vouchers in their own folders. Anything still here a day
+    later was abandoned."""
     cutoff = datetime.now().timestamp() - older_than_hours * 3600
     try:
         for path in SESSIONS_DIR.glob("*.json"):
@@ -234,12 +237,9 @@ def _sweep_sessions(older_than_hours: int = 24) -> None:
 
 def base_context(config: dict) -> dict:
     """Everything the index page needs regardless of what is being shown."""
-    ledger = core.read_ledger()
     return {
         "cfg": config,
         "qr_ready": core.qr_url_configured(config),
-        "ledger_count": len(ledger),
-        "last_issued": _last_issued(ledger),
         "qr": qr_quality(config),
         "thumbnail_state": core.thumbnail_state(config),
         "hosted": HOSTED,
@@ -267,19 +267,6 @@ def qr_quality(config: dict) -> dict | None:
     if not core.qr_url_configured(config):
         return None
     return core.qr_quality(core.qr_url(config))
-
-
-def _last_issued(ledger: list[dict]) -> str:
-    if not ledger:
-        return ""
-    stamps = [r.get("issued_at", "") for r in ledger if r.get("issued_at")]
-    if not stamps:
-        return ""
-    try:
-        latest = max(datetime.fromisoformat(s) for s in stamps)
-        return latest.strftime("%d %B %Y")
-    except ValueError:
-        return ""
 
 
 @app.post("/upload")
@@ -337,12 +324,11 @@ def _parsed_context(token: str) -> dict | None:
     session = load_session(token)
     if not session:
         return None
-    ledger = core.read_ledger()
     return {
         "token": token,
         "filename": session["filename"],
         "rows": [
-            {"index": i, "request": req, "previous": core.previous_issue(req, ledger)}
+            {"index": i, "request": req}
             for i, req in enumerate(session["requests"])
         ],
         "skipped": session["skipped"],
@@ -366,7 +352,7 @@ def _index_with_error(message: str, skipped: list[dict] | None = None,
 def preview(token: str, index: int):
     """The print sheet as it will come out, carrying the specimen code.
 
-    Nothing is written to the ledger, and every voucher shows 00-000 rather than
+    Nothing is written anywhere, and every voucher shows 00-000 rather than
     its real code, because no request has ID 0. A preview does get printed by
     accident occasionally and it must be impossible for that sheet to carry a
     code somebody could hand over.
@@ -447,7 +433,6 @@ def generate():
                                  token=token)
 
     issued_by = (request.form.get("issued_by") or "").strip()
-    override = request.form.get("override_duplicates") == "on"
 
     # No dates to read or check here any more. Both come off the row in the
     # export, and a row without a usable expiry never reaches this point:
@@ -455,29 +440,12 @@ def generate():
     venues = core.resolve_venues(config, request.form.getlist("venues"),
                                  request.form.get("extra_venue", ""))
 
-    ledger = core.read_ledger()
-    blocked = []
-    for i in selected:
-        req = session["requests"][i]
-        prev = core.previous_issue(req, ledger)
-        if prev and not override:
-            blocked.append((req, prev))
-    if blocked:
-        req, prev = blocked[0]
-        return _index_with_error(
-            f"'{req.event_name}' looks like it has already been issued on "
-            f"{prev['issued_at']} as batch {prev['batch']} "
-            f"({prev['count']} vouchers, codes {prev['codes'][0]} to "
-            f"{prev['codes'][-1]}). A second set would carry those same codes "
-            f"again, because a code is the ID and the ticket number rather than "
-            f"something drawn fresh, so the two sets could not be told apart. "
-            f"Untick it, or tick 'issue these again anyway' further down if you "
-            f"really do need a second set.",
-            token=token,
-        )
-
+    # Nothing is checked against a previous run and nothing refuses to print.
+    # This is a printing tool: a code is the export's ID and a ticket number, so
+    # printing the same request twice produces the same vouchers, and telling
+    # somebody they cannot reprint a lost sheet was getting in the way more than
+    # it was protecting anything.
     issued_at = datetime.now()
-    batch = core._next_batch_number(ledger)
     results = []
     started = time.perf_counter()
 
@@ -501,7 +469,7 @@ def generate():
                 core.write_batch_summary(
                     out_dir / core.batch_file_name(
                         "Batch summary", req.event_name, req.dmu_id, ".csv"),
-                    req, vs, batch, issued_by, issued_at, venues)
+                    req, vs, issued_by, issued_at, venues)
 
                 # No vendor sheet and no copy of the export in here. The vendor
                 # sheet is the same handout for every batch in the run and goes
@@ -511,28 +479,12 @@ def generate():
                 # them every other request in it; the file itself is still kept
                 # in Uploads for the audit trail.
 
-                core.append_ledger([{
-                    "dmu_code": v.dmu_code,
-                    "batch": f"{batch:03d}",
-                    "event_name": req.event_name,
-                    "cost_centre": req.cost_centre,
-                    "value_pence": req.value_pence,
-                    "valid_until": req.expiry_date,
-                    "event_date": req.event_date,
-                    "budget_approver": req.budget_approver,
-                    "lead_contact": req.lead_contact,
-                    "issued_at": issued_at.isoformat(timespec="seconds"),
-                    "issued_by": issued_by,
-                    "output_folder": str(out_dir),
-                } for v in vs])
-
                 results.append({
                     "event_name": req.event_name,
                     "dmu_id": req.dmu_id,
                     "count": req.count,
                     "value_display": req.value_display,
                     "total_display": req.total_display,
-                    "batch": f"{batch:03d}",
                     "first_code": vs[0].dmu_code,
                     "last_code": vs[-1].dmu_code,
                     # Per event now, because the export carries a date per row.
@@ -541,11 +493,10 @@ def generate():
                     "folder": str(out_dir),
                     "pages": -(-len(vs) // int(config.get("vouchers_per_page") or 6)),
                 })
-                batch += 1
 
             # Refresh the loose copy that lives with the records. Its own
-            # try/except, because the ledger has already been written by this
-            # point: a failure here must not be reported as "nothing was
+            # try/except, because the vouchers have already been written by
+            # this point: a failure here must not be reported as "nothing was
             # written anywhere", which is what the handler below says.
             try:
                 writer.write(render_vendor_sheet(config), core.LOOSE_VENDOR_PDF)
@@ -628,13 +579,6 @@ def download_batch():
                      download_name=f"{folder.name}.zip")
 
 
-@app.get("/ledger")
-def ledger_csv():
-    if not core.LEDGER_PATH.exists():
-        abort(404)
-    return send_file(core.LEDGER_PATH, as_attachment=False, mimetype="text/plain")
-
-
 @app.get("/health")
 def health():
     config = core.load_config()
@@ -642,7 +586,6 @@ def health():
         "qr_url_configured": core.qr_url_configured(config),
         "qr_url": core.qr_url(config),
         "qr": qr_quality(config),
-        "vouchers_issued": len(core.read_ledger()),
         "logos": {k: bool(v) for k, v in logo_uris().items()},
         "sample_thumbnail": core.thumbnail_state(config),
     })

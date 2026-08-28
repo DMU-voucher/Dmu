@@ -4,15 +4,18 @@ Drop the approval CSV in, get print-ready vouchers out.
 
 Vouchers are made **on the site**, behind one password. The same code runs on
 the office computer from `run.bat`, which is how the vendor sheet's picture gets
-remade and how anything is tried out before it goes up, but vouchers are issued
-in one place only, so that one ledger holds every number ever printed.
+remade and how anything is tried out before it goes up.
 
 ```
-approval CSV  ->  the app  ->  printed vouchers
-                                     |
-                          Ledger\issued_vouchers.csv
-                            (what went out, for reconciling)
+approval CSV  ->  the app  ->  a folder per request
+                                (print sheet + summary)
 ```
+
+**This is a printing tool and it keeps no record between runs.** Nothing is
+logged, nothing is checked against a previous run, and the same request can be
+printed as many times as you like. It prints the same vouchers every time, since
+a code is the export's ID and a ticket number rather than something drawn fresh.
+Download each batch when it is made and keep it: the folder is the record.
 
 ---
 
@@ -35,8 +38,8 @@ warning at the end.
 2. **Check what was found.** One line per approved request, with the DMU ID, the
    number of vouchers, the value each, the total, and **both dates as they came
    out of the file**. Click **Preview** to see the print sheet before committing
-   to it. A preview uses specimen numbers starting `000` and writes nothing to
-   the ledger.
+   to it. A preview uses specimen numbers starting `000` and writes nothing
+   anywhere.
 3. **Choose where they can be spent.** Every venue in `config.json` is offered,
    ticked. Untick any that do not apply to this run, and type a one-off vendor in
    the box if there is one. The one-off prints but is not remembered.
@@ -59,14 +62,14 @@ Two consequences worth knowing:
   expiry never expires while the vendor sheet tells vendors to refuse an expired
   one. Put the date in the export and drop it in again.
 - **The event date is optional** and simply stays off the voucher when the cell
-  is blank. It is still written to the ledger, which is where the weekly
-  "when will you be busy" list for vendors comes from.
+  is blank. It is written into the batch summary either way, which is where the
+  weekly "when will you be busy" list for vendors comes from.
 
 ### The voucher code
 
 The code in the red box is DMU's own: the export's **ID** column, a hyphen, and
 the voucher's place in that request. Request 12 for 40 vouchers prints `12-01` to
-`12-40`. It is on the voucher, in the batch summary and in the ledger, and it
+`12-40`. It is on the voucher and in the batch summary, and it
 is the only thing that says which voucher this is.
 
 **A row with no ID is refused**, and appears under "Rows not used" saying so.
@@ -102,16 +105,15 @@ Two things that used to be in here are not any more:
   cost centres and approvers. The file that was dropped in is still kept in
   `Uploads\` for the audit trail, and the summary carries that row's own detail.
 
-And `Ledger\issued_vouchers.csv` gains a row per voucher. That file is the record
-of everything ever issued. Do not delete it: it is both the audit trail and what
-the app checks to make sure a number is never issued twice.
+And that is all that is kept. **There is no log.** The app used to write every
+code to `Ledger\issued_vouchers.csv` and refuse to print a request twice, and
+both went in August 2026 at DMU's request: this is a printing platform, and
+being told a lost sheet could not be reprinted was getting in the way more than
+it was protecting anything. Nothing checks a run against a previous one, so
+reprinting is simply printing again.
 
-**The ledger gained a `dmu_code` column.** The first time a newer copy of the app
-appends to an older ledger it rewrites the header, back-fills the new column as
-blank on the existing rows, and drops a dated `issued_vouchers.bak-...csv` beside
-it first. This happens by itself, once, including on the server. Without it the
-app would append wider rows under the old header and every reader of the file,
-this one included, would misread them.
+An old `Ledger\issued_vouchers.csv` from before that change is not read, written
+or deleted by the app. It is client data. Keep it or remove it deliberately.
 
 ## Wording, venues and the QR link
 
@@ -271,20 +273,22 @@ stopped at 13mm holding 14.4mm of code, and the difference printed straight
 through the small print above. The floor is gone and the code steps down
 instead.
 
-Ledger rows written before the change still carry their old reference in a
-`voucher_code` column, kept rather than dropped: those numbers are on vouchers
-that may still be in circulation.
-
 ## Reconciling
 
-`Ledger\issued_vouchers.csv` says what went out. Compare it, on the voucher
-number, against however redemptions are being collected: the Microsoft Form's
-response spreadsheet, or the batch summaries if they were filled in on
-paper.
+The batch summaries say what went out: one per request, in its folder, listing
+every code with blank columns for recording redemptions. Compare them, on the
+voucher code, against however redemptions are being collected: the Microsoft
+Form's response spreadsheet, or the summaries themselves if they were filled in
+on paper.
 
-A number in the responses that is not in the ledger was either mis-typed or was
-never a voucher. The same number appearing twice in the responses is a voucher
-that was used twice, which is why vendors are told to keep the paper.
+This only works if the batch folders are kept. Nothing else records what was
+printed.
+
+A code in the responses that is in no summary was either mis-typed or was never
+a voucher. The same code appearing twice is a voucher that was used twice, which
+is why vendors are told to keep the paper. A code is the ID and the ticket
+number with no check digit, so a mis-key can land on another real voucher in the
+same batch.
 
 ## If something goes wrong
 
@@ -293,14 +297,14 @@ that was used twice, which is why vendors are told to keep the paper.
 reinstalls what it needs. `python check_pdf_engine.py` tests PDF output on its
 own if you need to look closer.
 
-**A failed run leaves nothing behind.** Numbers are written to the ledger only
-after the PDFs exist, so a run that falls over has nothing to undo.
+**A failed run leaves nothing behind.** The error page says so and means it:
+nothing is written anywhere until the PDFs exist.
 
-**Do not issue vouchers from the office copy.** The site keeps its own ledger,
-on the server, and the two cannot see each other: a number issued here is
-invisible to the check that stops the site printing the same one again.
-Previewing and `make_sample_thumbnail.py` are both safe, because neither writes
-to a ledger.
+**Printing twice is allowed.** Nothing checks a run against a previous one, and
+the same request prints the same vouchers every time, so a lost or spoiled sheet
+is reprinted by simply making it again. That also means two people printing the
+same request separately produce two identical sets of vouchers, which only the
+paper itself can tell apart.
 
 ## On the server
 
@@ -335,11 +339,7 @@ by `wsgi.py`, which is the file PythonAnywhere loads.
    fill in `DMU_SITE_PASSWORD`. That file is gitignored and never leaves the
    server. There is **no Environment variables section** in the Web tab, whatever
    older notes in this repository claimed.
-5. **Carry the ledger over.** Upload `Ledger\issued_vouchers.csv` to
-   `~/dmu-voucher-data/Ledger/issued_vouchers.csv`. Miss this step and the site
-   starts from an empty record, which means it can reissue a number that has
-   already been printed.
-6. **Press Reload.** Nothing takes effect until you do. This is the step that
+5. **Press Reload.** Nothing takes effect until you do. This is the step that
    looks like "the change did not work".
 
 **Deploying a change**
@@ -349,9 +349,9 @@ Pull or upload the changed files, press Reload, **then run
 last step is not optional: it is the one that was missing in August 2026, and
 skipping it is how broken artwork reached paper.
 
-The records live in
-`~/dmu-voucher-data`, deliberately outside the repository folder, so a deploy
-cannot take the ledger with it.
+The finished batches live in `~/dmu-voucher-data`, deliberately outside the
+repository folder, so a deploy cannot take them with it. They are the only
+record there is, and the server is not a backup: download each batch.
 
 **Prefer `git pull` to uploading by hand.** Uploading is where
 `static/sample-voucher.png` gets left behind, because it is the one file that
@@ -364,6 +364,15 @@ prints with an empty voucher-number box.
 - One password prompt in front of everything. With `DMU_SITE_PASSWORD` unset the
   app serves nothing at all, rather than serving an open voucher printer to
   whoever finds the address.
+- **The username in that prompt is not checked.** The browser asks for one
+  because that is what HTTP basic authentication is; only the password matters,
+  so type anything in the name box. Two names were in play at once in August
+  2026, the app's and PythonAnywhere's account-level protection, and since the
+  prompt gives no clue which is being asked for, signing in turned into a
+  guessing game that locked the site's owner out. If PythonAnywhere's own
+  password protection is switched off, this prompt is the only door to the
+  voucher printer, so the password should be a real one and should be changed
+  after it has been typed anywhere it might be seen.
 - Finished batches come down as a zip, because there is no folder to open.
   Download them and keep them: the copy on the server is not a backup.
 - PDFs are drawn by WeasyPrint rather than Chromium, from the same HTML and CSS.
@@ -406,9 +415,7 @@ make_sample_thumbnail.py  remakes the vendor sheet's example picture
 static/
   voucher.css           how a voucher looks, screen and print alike
   sample-voucher.png    the example picture on the vendor sheet
-Ledger/
-  issued_vouchers.csv   the record of everything issued
-Output/                 a folder per batch
+Output/                 a folder per batch, which is the only record kept
 pace.json               how long the last run took, for the progress bar
 assets/                 DMU's logo, and the original DMU supplied
 ```

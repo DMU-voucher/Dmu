@@ -32,12 +32,10 @@
     <strong>Done.</strong>
     {% if hosted %}
       Download each batch below and keep it somewhere of your own: the copy on
-      the server is not a backup. Every voucher code has been written to the log
-      so the same code is never issued twice.
+      the server is not a backup, and nothing else is kept.
     {% else %}
       The files are in the folders below, inside the <code>Output</code> folder
-      next to this app. Every voucher code has been written to the log so the
-      same code is never issued twice.
+      next to this app.
     {% endif %}
   </div>
 
@@ -64,8 +62,7 @@
         </dd>
         <dt>Voucher codes</dt>
         <dd>
-          <code>{{ r.first_code }}</code> to <code>{{ r.last_code }}</code>,
-          batch {{ r.batch }}.
+          <code>{{ r.first_code }}</code> to <code>{{ r.last_code }}</code>.
           <span class="tiny">The ID from the export and the ticket number, so
             they run in order. The full list is in the batch summary.</span>
         </dd>

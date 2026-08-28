@@ -23,8 +23,8 @@
     <div class="top-title">
       <h1>Voucher generator</h1>
       {% if hosted %}
-        <p>Every voucher made here is written to the log, which is what stops a
-          number going out twice.</p>
+        <p>Download each batch when it is made and keep it. Nothing is stored
+          here between runs.</p>
       {% else %}
         <p>Everything happens on this computer, nothing is uploaded.</p>
       {% endif %}
@@ -165,23 +165,13 @@
                        href="{{ url_for('preview', token=parsed.token, index=item.index) }}">Preview</a>
                   </td>
                 </tr>
-                {% if r.warnings or item.previous %}
+                {% if r.warnings %}
                   <tr>
                     <td></td>
                     <td colspan="5">
                       {% for w in r.warnings %}
                         <div class="warn" style="margin:6px 0 0">{{ w }}</div>
                       {% endfor %}
-                      {% if item.previous %}
-                        <div class="warn" style="margin:6px 0 0">
-                          <strong>Already issued.</strong>
-                          {{ item.previous.count }} vouchers for this event and value
-                          went out on {{ item.previous.issued_at }} as batch
-                          {{ item.previous.batch }}
-                          ({{ item.previous.codes[0] }} to {{ item.previous.codes[-1] }}).
-                          Untick it, or tick the box further down to issue a second set.
-                        </div>
-                      {% endif %}
                     </td>
                   </tr>
                 {% endif %}
@@ -239,17 +229,8 @@
               <span class="lab">Issued by (optional)</span>
               <input type="text" name="issued_by" placeholder="Your name" maxlength="60"
                      value="{{ submitted.get('issued_by', '') }}">
-              <span class="sub">Recorded in the log, not printed on the voucher.</span>
-            </label>
-
-            <label class="checkline">
-              <input type="checkbox" name="override_duplicates"
-                     {% if submitted.get('override_duplicates') %}checked{% endif %}>
-              <span class="lab">
-                Issue these again anyway
-                <span class="sub">Only tick this if you deliberately need a second
-                  set for an event that has already had vouchers.</span>
-              </span>
+              <span class="sub">Written into the batch summary, not printed on
+                the voucher.</span>
             </label>
           </div>
 
@@ -264,10 +245,8 @@
   {% endif %}
 
   <footer class="foot">
-    {% if ledger_count %}
-      {{ ledger_count }} voucher{{ '' if ledger_count == 1 else 's' }} issued to date{% if last_issued %}, most recently on {{ last_issued }}{% endif %}.
-      <a href="{{ url_for('ledger_csv') }}" target="_blank">View the log</a> &middot;
-    {% endif %}
+    {# No running total and no log link. Nothing is recorded between runs: the
+       finished batches in their folders are the record. #}
     <a href="{{ url_for('vendor_instructions') }}">Vendor instruction sheet</a>
     (<a href="{{ url_for('preview_vendor') }}" target="_blank">look at it first</a>)
     &middot; Redeemable at
