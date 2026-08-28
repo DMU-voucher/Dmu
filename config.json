@@ -9,7 +9,8 @@
     "Kim's Korean"
   ],
   "voucher_title": "Food & Drink Voucher",
-  "reference_label": "Voucher number",
+  "_reference_label": "The heading above the code in the red box. The code itself is DMU's own: the ID from the approval export plus the ticket number, so request 12 for 40 vouchers prints 12-01 to 12-40.",
+  "reference_label": "Voucher code",
   "holder_instruction": "Hand this voucher to the vendor to redeem.",
   "venue_intro": "Redeemable only at:",
   "venue_warning": "Not accepted anywhere else on campus, including the convenience store.",

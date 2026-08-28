@@ -249,16 +249,6 @@
             </label>
 
             <label class="checkline">
-              <input type="checkbox" name="make_singles"
-                     {% if not submitted or submitted.get('make_singles') %}checked{% endif %}>
-              <span class="lab">
-                Also make one PDF per voucher
-                <span class="sub">For emailing to attendees before the event. The
-                  print sheet is always made either way.</span>
-              </span>
-            </label>
-
-            <label class="checkline">
               <input type="checkbox" name="override_duplicates"
                      {% if submitted.get('override_duplicates') %}checked{% endif %}>
               <span class="lab">

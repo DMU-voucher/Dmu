@@ -212,14 +212,37 @@ html, body {
   line-height: 1;
 }
 
+/* Sized up from 19pt now the code is 12-01 rather than DMU-482-173-906: five
+   characters at the old size sat lost in a box built for fifteen.
+
+   Height is the constraint, not width. The voucher is a fixed 99mm cell inside
+   an overflow:hidden sheet, so anything the foot gains has to come out of the
+   slack this strip absorbs, and going too far clips the small print above.
+   Extra tracking spends the width, which is free, rather than more points. */
 .v-ref-number {
   font-family: Consolas, "Courier New", monospace;
-  font-size: 19pt;
+  font-size: 27pt;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   color: var(--ink);
   line-height: 1;
   white-space: nowrap;
+}
+
+/* Long codes step down rather than run off the paper. There is no ceiling on
+   the ID or the number of vouchers in a request: 12-01 is five characters,
+   50000-8000 is ten, and a five-figure ID issuing six figures of vouchers would
+   be more again. The code never wraps, so width has to be bought with points.
+   Which class applies is decided in Voucher.code_size_class, because both PDF
+   engines have to agree and WeasyPrint has no way to size text to its box. */
+.v-ref-number.long {
+  font-size: 21pt;
+  letter-spacing: 0.05em;
+}
+
+.v-ref-number.longest {
+  font-size: 16pt;
+  letter-spacing: 0.03em;
 }
 
 .v-where {
@@ -318,35 +341,15 @@ html, body {
   margin-top: 0.4mm;
 }
 
+/* No text-overflow here. WeasyPrint does not implement it, so it silently did
+   nothing on the server while working locally, and a long event name ran on and
+   pushed the layout. The name is truncated in the template instead. */
 .v-event {
   font-size: 5.4pt;
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 60mm;
-}
-
-/* DMU's own reference, sat opposite the event name on the bottom line. The auto
-   margin does the pushing rather than the row's justify-content, so a voucher
-   with no code, from an export with no ID column, keeps exactly the layout it
-   had before this existed. Small and grey on purpose: the number the vendor
-   keys in is the one in the red box above, and two numbers of equal weight is
-   how the wrong one gets typed. */
-.v-dmu-code {
-  margin-right: auto;
-  font-size: 5.4pt;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-
-/* Label in the sheet's own face, code in mono. Mono for both ran the two
-   together and the label started reading as part of the number. */
-.v-dmu-code span { font-weight: 700; }
-
-.v-dmu-code code {
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 5.6pt;
 }
 
 /* The money rules and the offline fallback, which are advice rather than a

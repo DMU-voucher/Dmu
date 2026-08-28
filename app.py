@@ -152,11 +152,6 @@ def render_sheet(vouchers_: list[core.Voucher], config: dict, title: str) -> str
     )
 
 
-def render_singles(vouchers_: list[core.Voucher], config: dict, title: str) -> str:
-    return render_template("single.html", vouchers=vouchers_, title=title,
-                           **render_context(config))
-
-
 def render_vendor_sheet(config: dict) -> str:
     """The handout. Always shows the fixed specimen rather than a voucher out of
     the batch, so the sheet never quotes a number that was really issued."""
@@ -364,11 +359,12 @@ def _index_with_error(message: str, skipped: list[dict] | None = None,
 
 @app.get("/preview/<token>/<int:index>")
 def preview(token: str, index: int):
-    """The print sheet as it will come out, using specimen numbers.
+    """The print sheet as it will come out, carrying the specimen code.
 
-    Nothing is written to the ledger. The numbers shown start 000, which no
-    real voucher ever does, so a
-    preview that gets printed by accident cannot be passed off as a voucher.
+    Nothing is written to the ledger, and every voucher shows 00-000 rather than
+    its real code, because no request has ID 0. A preview does get printed by
+    accident occasionally and it must be impossible for that sheet to carry a
+    code somebody could hand over.
     """
     session = load_session(token)
     if not session or index >= len(session["requests"]):
@@ -381,7 +377,7 @@ def preview(token: str, index: int):
     # they are the only thing worth carrying in the query string.
     venues = core.resolve_venues(config, request.args.getlist("venues"),
                                  request.args.get("extra_venue", ""))
-    vs = core.build_vouchers(req, core.sample_references(req.count), venues)
+    vs = core.build_vouchers(req, venues, specimen=True)
     return render_sheet(vs, config, f"Preview - {req.event_name}")
 
 
@@ -412,7 +408,6 @@ def generate():
                                  token=token)
 
     issued_by = (request.form.get("issued_by") or "").strip()
-    make_singles = request.form.get("make_singles") == "on"
     override = request.form.get("override_duplicates") == "on"
 
     # No dates to read or check here any more. Both come off the row in the
@@ -434,8 +429,11 @@ def generate():
             f"'{req.event_name}' looks like it has already been issued on "
             f"{prev['issued_at']} as batch {prev['batch']} "
             f"({prev['count']} vouchers, codes {prev['codes'][0]} to "
-            f"{prev['codes'][-1]}). Untick it, or tick 'issue these again anyway' "
-            f"further down if you really do need a second set.",
+            f"{prev['codes'][-1]}). A second set would carry those same codes "
+            f"again, because a code is the ID and the ticket number rather than "
+            f"something drawn fresh, so the two sets could not be told apart. "
+            f"Untick it, or tick 'issue these again anyway' further down if you "
+            f"really do need a second set.",
             token=token,
         )
 
@@ -447,17 +445,14 @@ def generate():
         with core.PdfWriter() as writer:
             for i in selected:
                 req = session["requests"][i]
-                references = core.draw_references(req.count)
-                vs = core.build_vouchers(req, references, venues)
-                out_dir = core.unique_output_dir(req.event_name, issued_at)
+                vs = core.build_vouchers(req, venues)
+                # One folder per request, with the ID in its name, because this
+                # folder is what gets sent to whoever asked for the vouchers.
+                out_dir = core.unique_output_dir(req.event_name, issued_at, req.dmu_id)
                 out_dir.mkdir(parents=True, exist_ok=True)
 
                 sheet_pdf = out_dir / "Print sheet.pdf"
                 writer.write(render_sheet(vs, config, req.event_name), sheet_pdf)
-
-                singles_written = 0
-                if make_singles:
-                    singles_written = _write_single_pdfs(writer, vs, config, out_dir)
 
                 writer.write(render_vendor_sheet(config),
                              out_dir / "Vendor instructions.pdf")
@@ -468,7 +463,6 @@ def generate():
                 core.copy_source_csv(Path(src) if src else None, out_dir)
 
                 core.append_ledger([{
-                    "voucher_code": v.code,
                     "dmu_code": v.dmu_code,
                     "batch": f"{batch:03d}",
                     "event_name": req.event_name,
@@ -485,20 +479,18 @@ def generate():
 
                 results.append({
                     "event_name": req.event_name,
+                    "dmu_id": req.dmu_id,
                     "count": req.count,
                     "value_display": req.value_display,
                     "total_display": req.total_display,
                     "batch": f"{batch:03d}",
-                    "first_code": vs[0].code,
-                    "last_code": vs[-1].code,
+                    "first_code": vs[0].dmu_code,
+                    "last_code": vs[-1].dmu_code,
                     # Per event now, because the export carries a date per row.
                     "valid_until": core.format_uk_date(req.expiry_date),
                     "event_date": core.format_uk_date(req.event_date),
-                    "first_dmu_code": vs[0].dmu_code,
-                    "last_dmu_code": vs[-1].dmu_code,
                     "folder": str(out_dir),
                     "pages": -(-len(vs) // int(config.get("vouchers_per_page") or 6)),
-                    "singles": singles_written,
                 })
                 batch += 1
 
@@ -532,36 +524,6 @@ def generate():
         qr_ready=core.qr_url_configured(config),
         qr_url=core.qr_url(config),
     )
-
-
-def _write_single_pdfs(writer: core.PdfWriter, vs: list[core.Voucher],
-                       config: dict, out_dir: Path) -> int:
-    """One PDF per voucher, for emailing.
-
-    Rendered as a single multi-page PDF then split with PyMuPDF, which is far
-    quicker than driving the browser once per voucher.
-    """
-    import fitz
-
-    singles_dir = out_dir / "Individual"
-    singles_dir.mkdir(parents=True, exist_ok=True)
-
-    combined = out_dir / "All vouchers (individual pages).pdf"
-    writer.write(render_singles(vs, config, "Vouchers"), combined)
-
-    written = 0
-    with fitz.open(combined) as doc:
-        if doc.page_count != len(vs):
-            # Should not happen, but never guess which page is which voucher.
-            raise RuntimeError(
-                f"Expected {len(vs)} single-voucher pages, got {doc.page_count}"
-            )
-        for page_index, v in enumerate(vs):
-            with fitz.open() as single:
-                single.insert_pdf(doc, from_page=page_index, to_page=page_index)
-                single.save(str(singles_dir / f"{v.code}.pdf"))
-            written += 1
-    return written
 
 
 @app.post("/open-folder")

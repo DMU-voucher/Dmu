@@ -62,28 +62,32 @@ Two consequences worth knowing:
   is blank. It is still written to the ledger, which is where the weekly
   "when will you be busy" list for vendors comes from.
 
-### The DMU code
+### The voucher code
 
-Each voucher also carries `ID-ticket`, from the export's **ID** column and the
-voucher's place in that request: request 12 for 40 vouchers prints `12-01` to
-`12-40`. It is on the voucher, in `Batch summary.csv` and in the ledger.
+The code in the red box is DMU's own: the export's **ID** column, a hyphen, and
+the voucher's place in that request. Request 12 for 40 vouchers prints `12-01` to
+`12-40`. It is on the voucher, in `Batch summary.csv` and in the ledger, and it
+is the only thing that says which voucher this is.
 
-It is set small and grey under the voucher number on purpose. The number in the
-red box is the one the vendor keys in; two numbers of equal weight is how the
-wrong one gets typed. An export with no ID column simply produces no DMU code,
-and everything else works as before.
+**A row with no ID is refused**, and appears under "Rows not used" saying so.
+There is no code without an ID, and a voucher with an empty box is one nobody can
+record a redemption against.
 
 ## What comes out
 
-Everything lands in `Output\<date> <event name>\`:
+**One request, one folder, one zip.** The folder is named with the ID, so it can
+be sent to whoever asked for the vouchers exactly as it stands, and every code
+inside it starts with that same ID:
+
+```
+Output\2026-08-28 ID 12 Test 5\
+```
 
 | File | What it is |
 | --- | --- |
 | `Print sheet.pdf` | A4 sheets, six vouchers per page, dashed cut guides. **Print at 100% scale, not "fit to page".** |
-| `Individual\DMU-482-173-906.pdf` and so on | One PDF per voucher, named by its number, for emailing to attendees. |
-| `All vouchers (individual pages).pdf` | The same one-per-page vouchers as a single document, if you would rather print than email. |
 | `Vendor instructions.pdf` | One page to give each vendor this run is redeemable at. |
-| `Batch summary.csv` | Every number in the batch with its DMU code, plus blank columns for recording redemptions by hand. Also records which vendors the run was for. |
+| `Batch summary.csv` | Every code in the batch, plus blank columns for recording redemptions by hand. Also records the DMU ID and which vendors the run was for. |
 | `Source export - ....csv` | A copy of the exact file that was dropped in. |
 
 And `Ledger\issued_vouchers.csv` gains a row per voucher. That file is the record
@@ -186,30 +190,38 @@ that running `make_sample_thumbnail.py` will not clear.
 
 ---
 
-## The voucher numbers
+## The voucher codes
 
-There is no QR code on a voucher, so the number printed in the red panel is the
+There is no QR code on a voucher, so the code printed in the red panel is the
 **only** thing that says which voucher this is:
 
 ```
-DMU-482-173-906
+12-01
 ```
 
-Nine digits. The first eight are drawn at random from 10,000,000 to 99,999,999,
-so 90 million possibilities against the few thousand that get issued. The ninth
-is a check digit, which is what lets a mis-typed number be told apart from one
-that was never issued. It catches every single-digit slip and every swap of two
-neighbouring digits.
+The export's ID, then the ticket number within that request, padded to the width
+of the count so they sort: 100 vouchers run `12-001` to `12-100`. Nothing is
+drawn or allocated, so a code is simply a property of the request. There is
+nothing to set up, run out of or top up.
 
-Each number is drawn when its batch is made, and checked against the ledger, so:
+`00-000` is the specimen used by previews and the vendor handout. No request has
+ID 0, so a sheet carrying it can never be passed off as real vouchers.
 
-- Two vouchers on the same printed sheet are nowhere near each other
-  numerically, and neither can be guessed from the other.
-- The same number is never issued twice.
-- A number starting `000` is a specimen from a preview or the vendor handout,
-  never a real voucher.
+**This replaced a random nine-digit reference in August 2026, and two things went
+with it.** Both were raised and accepted, and both matter when reconciling:
 
-There is nothing to set up, nothing to run out of and nothing to top up.
+- **There is no check digit.** The old `DMU-482-173-906` ended in one, which
+  caught every single-digit slip and every swap of neighbouring digits. Codes now
+  run consecutively, so a vendor typing `12-10` instead of `12-01` hits another
+  live voucher in the same batch rather than an error. A mistyped code cannot be
+  told from a real one.
+- **Codes are guessable.** Anyone holding one voucher can write down the rest of
+  the batch. What actually prevents reuse is the vendor keeping the paper, which
+  the vendor sheet already says in bold.
+
+Ledger rows written before the change still carry their old reference in a
+`voucher_code` column, kept rather than dropped: those numbers are on vouchers
+that may still be in circulation.
 
 ## Reconciling
 
@@ -280,7 +292,12 @@ by `wsgi.py`, which is the file PythonAnywhere loads.
 
 **Deploying a change**
 
-Pull or upload the changed files, then press Reload. The records live in
+Pull or upload the changed files, press Reload, **then run
+`check_pdf_engine.py` on the server before anyone prints a real batch.** That
+last step is not optional: it is the one that was missing in August 2026, and
+skipping it is how broken artwork reached paper.
+
+The records live in
 `~/dmu-voucher-data`, deliberately outside the repository folder, so a deploy
 cannot take the ledger with it.
 
@@ -298,7 +315,26 @@ prints with an empty voucher-number box.
 - Finished batches come down as a zip, because there is no folder to open.
   Download them and keep them: the copy on the server is not a backup.
 - PDFs are drawn by WeasyPrint rather than Chromium, from the same HTML and CSS.
-  Check the first print sheet against a local one before a real print run.
+  **The two do not agree, and Chromium passing on the office machine proves
+  nothing about the server.** In August 2026 a layout that was perfect locally
+  shipped with the voucher code printed on top of the event name and the small
+  print sliced in half by the code box, because nothing had ever rendered it with
+  WeasyPrint.
+
+  So, **after every deploy and before printing anything real**, run
+
+  ```
+  python3.10 check_pdf_engine.py
+  ```
+
+  on the server. It renders the artwork with whichever engine is there and then
+  measures the result for overlapping text, text escaping its voucher and text
+  printed over the code box, and exits non-zero if it finds any. It also writes
+  its PDFs to `engine-check/`, which can be downloaded from the Files tab.
+
+  Two WeasyPrint gaps to design around, both found the hard way:
+  `text-overflow: ellipsis` does nothing, and auto margins on flex items are not
+  honoured. `voucher.css` must not rely on either.
 - The vendor sheet's example picture cannot be remade there, because that needs
   Chromium. Run `make_sample_thumbnail.py` on the office computer and deploy the
   PNG it makes.
@@ -309,12 +345,11 @@ prints with an empty voucher-number box.
 run.bat / run.command   what you double-click
 app.py                  the web pages and the CSV drop
 vouchers.py             voucher logic, PDF output
-refs.py                 the number scheme and the check digit
 config.json             wording, venues, the QR link
 wsgi.py                 what the server loads, and what configures it
 .env.example            copy to .env on the server: the password lives there
 requirements-server.txt what to install on the server
-check_pdf_engine.py     tests PDF output when it will not work
+check_pdf_engine.py     renders the artwork and measures it. Run it on the server
 make_sample_thumbnail.py  remakes the vendor sheet's example picture
 static/
   voucher.css           how a voucher looks, screen and print alike

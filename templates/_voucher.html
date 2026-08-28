@@ -51,24 +51,22 @@
       {% for line in cfg.small_print %}<li>{{ line }}</li>{% endfor %}
     </ul>
 
-    {# The QR code is identical on every voucher, so this number is the only
-       thing on the artwork that says which voucher this is. The vendor keys it
-       in off the paper with a queue waiting, so it gets the full width of the
-       voucher rather than a column, and the largest type the foot can carry. #}
+    {# The QR code is identical on every voucher, so this code is the only thing
+       on the artwork that says which voucher this is. It is DMU's own reference,
+       the ID from the approval export and this voucher's ticket number. The
+       vendor keys it in off the paper with a queue waiting, so it gets the full
+       width of the voucher rather than a column, and the largest type the foot
+       can carry. #}
     <div class="v-ref-strip">
       <span class="v-ref-label">{{ cfg.reference_label }}</span>
-      <span class="v-ref-number">{{ v.code }}</span>
+      <span class="v-ref-number {{ v.code_size_class }}">{{ v.dmu_code }}</span>
     </div>
 
-    {# DMU's own reference, from the ID column of the approval export and the
-       ticket number within that request. Deliberately down here and small: the
-       vendor reads the voucher number above, and two long numbers of equal
-       weight is how the wrong one gets keyed in. #}
+    {# Truncated here rather than with text-overflow, which WeasyPrint does not
+       support at all, so on the server a long name used to run on and push the
+       layout instead of ellipsing. #}
     <div class="v-code-row">
-      {% if v.dmu_code %}
-        <div class="v-dmu-code"><span>DMU code</span> <code>{{ v.dmu_code }}</code></div>
-      {% endif %}
-      <div class="v-event">{{ v.event_name }}</div>
+      <div class="v-event">{{ v.event_name|truncate(38, True, '…') }}</div>
     </div>
   </div>
 

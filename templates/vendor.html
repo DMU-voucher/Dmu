@@ -44,10 +44,12 @@
   <h2>Then, when a customer hands you a voucher</h2>
   <ol class="steps">
     <li><strong>Check the voucher.</strong> The "valid until" date has not
-      passed, the number in the red box is there and readable, and the value is
+      passed, the code in the red box is there and readable, and the value is
       the one printed in large type at the top.</li>
     <li><strong>Open the form</strong> from your bookmark and enter the voucher
-      number, for example <span class="mono">{{ specimen.code }}</span>.</li>
+      code, for example <span class="mono">{{ specimen.dmu_code }}</span>.
+      Please type it exactly as printed, including the dash and any leading
+      zero.</li>
     <li><strong>Serve the order</strong> up to the value shown on the
       voucher.</li>
   </ol>
@@ -65,13 +67,13 @@
     <strong>If it comes to more</strong>, the customer pays the difference
     themselves as normal.<br>
     <strong>If you cannot get online</strong>, take the voucher anyway and write
-    the number down. Nobody should be turned away over it.
+    the code down. Nobody should be turned away over it.
   </div>
 
   <h2>Please do not accept</h2>
   <ul class="plain">
     <li>A voucher whose "valid until" date has passed.</li>
-    <li>A voucher whose number is missing or damaged. Without the number there
+    <li>A voucher whose code is missing or damaged. Without the code there
       is nothing to record, and the QR code is the same on every voucher so it
       does not say which one this is.</li>
     <li>More than one voucher against a single transaction.</li>
@@ -93,10 +95,10 @@
     {% endif %}
     <div class="sample-note">
       <strong>This is an example only.</strong> There is no QR code on a
-      voucher: the only code is the one on this sheet. A real voucher carries
-      its own number in the red box and a real date where this one says
-      "{{ cfg.valid_until_label }} DD Month YYYY", and a real number never
-      starts 000. The value may differ from event to event, so always read the
+      voucher: the only QR code is the one on this sheet. A real voucher carries
+      its own code in the red box and a real date where this one says
+      "{{ cfg.valid_until_label }} DD Month YYYY", and a real code never starts
+      "00-". The value may differ from event to event, so always read the
       value printed on the voucher in front of you.
     </div>
   </div>
@@ -104,7 +106,7 @@
   <div class="vendor-foot">
     <strong>Questions on the day:</strong> contact the DMU event lead named on the
     booking, or DMU Venues at dmuvenues@dmu.ac.uk.<br>
-    Quote the voucher number from the red box if you need to query a specific
+    Quote the voucher code from the red box if you need to query a specific
     voucher with the university.
   </div>
 

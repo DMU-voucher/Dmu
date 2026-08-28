@@ -19,8 +19,6 @@ from pathlib import Path
 
 import segno
 
-import refs
-
 APP_DIR = Path(__file__).resolve().parent
 
 # Everything the app writes lives under here: the ledger, the finished batches,
@@ -42,7 +40,10 @@ LOOSE_VENDOR_PDF = DATA_DIR / "Vendor instructions.pdf"
 PLACEHOLDER_QR_URL = "PASTE THE MICROSOFT FORM ADDRESS HERE"
 
 LEDGER_FIELDS = [
-    "voucher_code",
+    # The code printed on the voucher, and the only thing identifying it. The
+    # random DMU-482-173-906 reference this replaced is gone, but rows written
+    # before that carry one and _migrate_ledger_header keeps their column: those
+    # numbers are on paper in circulation and are not ours to drop.
     "dmu_code",
     "batch",
     "event_name",
@@ -288,6 +289,7 @@ def parse_csv(text: str) -> ParseResult:
         total_pence = parse_money(get(row, "total_value"))
         expiry_date = parse_uk_date(get(row, "expiry_date"))
         event_date = parse_uk_date(get(row, "event_date"))
+        dmu_id = get(row, "dmu_id")
 
         label = event_name or f"row {row_number}"
 
@@ -323,6 +325,18 @@ def parse_csv(text: str) -> ParseResult:
             })
             continue
 
+        # The ID is half the code in the red box, and that code is now the only
+        # thing identifying a voucher. Without an ID the box prints empty, which
+        # is a voucher nobody can record a redemption against, so the row stops
+        # here rather than producing paper that cannot be reconciled.
+        if not dmu_id:
+            result.skipped.append({
+                "row_number": row_number,
+                "event_name": label,
+                "reason": "no ID in the file, and the ID is half the voucher code",
+            })
+            continue
+
         # The expiry is the file's to supply and there is no field on the form to
         # fill one in with. A voucher printed without one never expires, and the
         # vendor sheet tells vendors to refuse an expired voucher, so a missing
@@ -350,7 +364,7 @@ def parse_csv(text: str) -> ParseResult:
             lead_contact=get(row, "lead_contact"),
             lead_contact_email=get(row, "lead_contact_email"),
             status=status,
-            dmu_id=get(row, "dmu_id"),
+            dmu_id=dmu_id,
             expiry_date=expiry_date,
             event_date=event_date,
         )
@@ -392,6 +406,23 @@ def parse_csv(text: str) -> ParseResult:
         seen[req.key] = req
         deduped.append(req)
     result.requests = deduped
+
+    # Two different requests sharing an ID would print two different events'
+    # vouchers under the same codes, which is unreconcilable. The export should
+    # never do this, so say so loudly rather than quietly printing it.
+    by_id: dict[str, list[VoucherRequest]] = {}
+    for req in result.requests:
+        by_id.setdefault(req.dmu_id, []).append(req)
+    for dmu_id, group in by_id.items():
+        if len(group) < 2:
+            continue
+        rows = ", ".join(str(r.row_number) for r in group)
+        for req in group:
+            req.warnings.append(
+                f"ID {dmu_id} is on more than one row in this file (rows {rows}). "
+                f"Those events would print vouchers carrying the same codes. "
+                f"Tick only one of them."
+            )
 
     if not result.requests and not result.errors:
         result.errors.append(
@@ -454,7 +485,11 @@ def previous_issue(request: VoucherRequest, ledger: list[dict] | None = None) ->
                 "batch": batch,
                 "count": len(batch_rows),
                 "issued_at": issued_at,
-                "codes": [r.get("voucher_code", "") for r in batch_rows],
+                # dmu_code on anything issued since the codes changed, and the
+                # old random reference on rows written before that, which are
+                # still the numbers printed on those vouchers.
+                "codes": [(r.get("dmu_code") or r.get("voucher_code") or "")
+                          for r in batch_rows],
                 "output_folder": batch_rows[0].get("output_folder", ""),
             }
     return None
@@ -571,16 +606,36 @@ def asset_exists(name: str) -> bool:
 
 @dataclass
 class Voucher:
-    code: str
+    # The code in the red box: the export's ID and this voucher's ticket number.
+    # The only thing that says which voucher this is, since the QR code on the
+    # vendor sheet is the same for every one of them.
+    dmu_code: str
     value_display: str
     event_name: str
     valid_until: str
     event_date: str
-    # DMU's own reference for this voucher, from the export's ID column.
-    dmu_code: str = ""
     # Where this batch can be spent. Empty means fall back to the configured
     # list, which is what the specimen on the vendor sheet does.
     venues: list[str] = field(default_factory=list)
+
+    @property
+    def code_size_class(self) -> str:
+        """Which type size the code takes, chosen by how long it is.
+
+        The ID and the ticket count are DMU's to grow. Today a code is 12-01 at
+        five characters; a request numbered 50000 issuing 8000 vouchers is
+        50000-8000 at ten, and there is no ceiling on either. A code wider than
+        its box does not wrap, it runs off the paper, so long ones step down a
+        size instead.
+
+        Buckets rather than a calculation because both PDF engines have to agree
+        on the answer, and CSS that sizes text to fit its container does not
+        survive WeasyPrint.
+        """
+        n = len(self.dmu_code)
+        if n <= 13:
+            return ""
+        return "long" if n <= 17 else "longest"
 
 
 # --------------------------------------------------------------------------
@@ -605,24 +660,26 @@ THUMBNAIL_STAMP = APP_DIR / "static" / "sample-voucher.json"
 # expired, on a sheet whose own rules say to refuse an expired voucher.
 SPECIMEN_VALID_UNTIL = "DD Month YYYY"
 
-# Likewise not a real one. The shape is what the vendor needs to recognise, and
-# a plausible-looking code on a handout invites somebody to try redeeming it.
+# Likewise not a real one, and the only thing standing between a printed preview
+# and something that could be handed over. A code is now the export's ID and a
+# ticket number, so there is no naturally unusable range the way the old random
+# references gave one by starting 000. No request has ID 0, so this cannot
+# collide with anything real.
 SPECIMEN_DMU_CODE = "00-000"
 
 
 def specimen_voucher() -> "Voucher":
     """The example voucher the vendor sheet shows and quotes.
 
-    Fixed, and drawn from the same low numbers as any other preview, so the
-    number on the handout can never be one that was really issued to somebody.
+    Fixed, and carrying the specimen code rather than a real one, so the code on
+    the handout can never be one that was really issued to somebody.
     """
     return Voucher(
-        code=sample_references(1)[0],
+        dmu_code=SPECIMEN_DMU_CODE,
         value_display="£6.00",
         event_name="Example event",
         valid_until=SPECIMEN_VALID_UNTIL,
         event_date="",
-        dmu_code=SPECIMEN_DMU_CODE,
         # Left empty so the specimen shows the configured list. A batch's own
         # picked venues must not reach the handout, or the fingerprint below
         # would change with every print run.
@@ -688,14 +745,19 @@ def thumbnail_state(config: dict) -> str:
 # References
 # --------------------------------------------------------------------------
 
-def draw_references(count: int) -> list[str]:
-    """Numbers for a batch about to be printed.
+def already_issued_codes(codes: list[str], ledger: list[dict] | None = None) -> list[str]:
+    """Which of these codes are already in the ledger, in order, deduplicated.
 
-    The ledger is the record of everything that has gone out, so the ledger is
-    what a new number is checked against. There is no pool and no database: a
-    number exists once it is written to the ledger, and not before.
+    Codes are no longer drawn, they are derived from the export's ID and the
+    ticket number, so the same request produces the same codes every time it is
+    run. Re-issuing is allowed, but it has to be said out loud: the second set
+    carries codes identical to vouchers already in circulation and no vendor
+    could tell the two apart.
     """
-    return refs.draw_references(count, {r["voucher_code"] for r in read_ledger()})
+    ledger = read_ledger() if ledger is None else ledger
+    seen = {(row.get("dmu_code") or "").strip() for row in ledger}
+    seen.discard("")
+    return [c for c in codes if c in seen]
 
 
 def format_uk_date(value: str) -> str:
@@ -735,12 +797,20 @@ def resolve_venues(config: dict, selected: list[str] | None,
     return picked or known
 
 
-def build_vouchers(request: VoucherRequest, references: list[str],
-                   venues: list[str] | None = None) -> list[Voucher]:
-    """Dress a list of references as printable vouchers.
+def build_vouchers(request: VoucherRequest, venues: list[str] | None = None,
+                   specimen: bool = False) -> list[Voucher]:
+    """The printable vouchers for one request.
 
-    Drawing the numbers is separate on purpose. A preview must never write a
-    real number to the ledger, so it passes in throwaway ones.
+    Nothing is drawn or reserved here: a code is the export's ID and the ticket
+    number, so it is a property of the request rather than something allocated.
+    That is why this no longer takes a list of references.
+
+    `specimen` prints SPECIMEN_DMU_CODE on every voucher instead of the real
+    code, and previews use it. It matters more than it looks: a preview does get
+    printed by accident occasionally, and it must be impossible for that sheet to
+    carry a code somebody could hand over. The random references this replaced
+    gave that away for free by starting 000, and nothing about ID-and-ticket
+    does.
 
     Both dates come off the request, because they come off the row in the
     export. There is no way to pass a different one in, which is the point: one
@@ -748,27 +818,15 @@ def build_vouchers(request: VoucherRequest, references: list[str],
     """
     return [
         Voucher(
-            code=reference,
+            dmu_code=SPECIMEN_DMU_CODE if specimen else request.dmu_code_for(ticket),
             value_display=request.value_display,
             event_name=request.event_name,
             valid_until=format_uk_date(request.expiry_date),
             event_date=format_uk_date(request.event_date),
-            dmu_code=request.dmu_code_for(ticket),
             venues=list(venues or []),
         )
-        for ticket, reference in enumerate(references, start=1)
+        for ticket in range(1, request.count + 1)
     ]
-
-
-def sample_references(count: int) -> list[str]:
-    """References for a preview or the vendor handout. Never recorded anywhere.
-
-    Real references are drawn from 10,000,000 upwards, so these low numbers
-    print with leading zeros and can never collide with a live voucher. That
-    matters: a preview does get printed by mistake occasionally, and it must be
-    impossible for that sheet to carry somebody else's number.
-    """
-    return [refs.make_reference(i) for i in range(1, count + 1)]
 
 
 def chunk(items: list, size: int) -> list[list]:
@@ -913,8 +971,16 @@ def pdf_engines_available() -> dict[str, str]:
     return out
 
 
-def unique_output_dir(event_name: str, when: datetime) -> Path:
-    base = OUTPUT_DIR / f"{when:%Y-%m-%d} {safe_folder_name(event_name)}"
+def unique_output_dir(event_name: str, when: datetime, dmu_id: str = "") -> Path:
+    """One folder per request, named so it can be handed straight on.
+
+    The ID is in the name because the folder is the unit that goes to whoever
+    asked for the vouchers: one request, one folder, one zip, and the codes
+    inside it all begin with that same ID. "ID 12" is what the requestor will
+    quote back, so it should be what they see on what they are sent.
+    """
+    tag = f"ID {safe_folder_name(dmu_id)} " if dmu_id else ""
+    base = OUTPUT_DIR / f"{when:%Y-%m-%d} {tag}{safe_folder_name(event_name)}"
     candidate = base
     n = 2
     while candidate.exists():
@@ -943,10 +1009,9 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
         writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M")])
         writer.writerow(["Issued by", issued_by])
         writer.writerow([])
-        writer.writerow(["Voucher number", "DMU code", "Value",
-                         "Redeemed at", "Date redeemed"])
+        writer.writerow(["Voucher code", "Value", "Redeemed at", "Date redeemed"])
         for v in vouchers:
-            writer.writerow([v.code, v.dmu_code, v.value_display, "", ""])
+            writer.writerow([v.dmu_code, v.value_display, "", ""])
 
 
 def copy_source_csv(source: Path | None, dest_dir: Path) -> None:
