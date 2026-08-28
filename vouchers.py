@@ -17,6 +17,7 @@ import traceback
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, date
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import segno
 
@@ -49,6 +50,33 @@ DEFAULT_PACE = {"fixed_seconds": 4.0, "seconds_per_voucher": 0.15}
 LOOSE_VENDOR_PDF = DATA_DIR / "Vendor instructions.pdf"
 
 PLACEHOLDER_QR_URL = "PASTE THE MICROSOFT FORM ADDRESS HERE"
+
+
+# The clock. Every stamp the app writes goes through now_uk(), because
+# datetime.now() answers with whatever the machine underneath is set to, and
+# the two machines this app runs on disagree: the office PC is on UK time, and
+# the PythonAnywhere server is on UTC. That is an hour apart from late March to
+# late October, so the same run stamped 10:47 in the office and 09:47 hosted.
+#
+# Europe/London rather than a fixed offset, so BST and GMT are the tz
+# database's problem rather than ours.
+try:
+    UK_TIME = ZoneInfo("Europe/London")
+except ZoneInfoNotFoundError:  # pragma: no cover - Windows without tzdata
+    UK_TIME = None
+
+
+def now_uk() -> datetime:
+    """Now, in UK time, aware of its own timezone.
+
+    Aware, not naive, so the value carries its offset and cannot be read as
+    some other zone later. If the timezone database is missing we fall back to
+    the machine's own zone rather than guessing, and the stamp then names that
+    zone honestly instead of claiming a UK time it cannot vouch for.
+    """
+    if UK_TIME is not None:
+        return datetime.now(UK_TIME)
+    return datetime.now().astimezone()
 
 
 
@@ -553,7 +581,7 @@ def record_pace(vouchers: int, seconds: float) -> None:
             "fitted_from_two_runs": fitted,
             "last_vouchers": vouchers,
             "last_seconds": round(seconds, 2),
-            "measured_at": datetime.now().isoformat(timespec="seconds"),
+            "measured_at": now_uk().isoformat(timespec="seconds"),
         }, indent=2), encoding="utf-8")
     except OSError:
         traceback.print_exc()
@@ -1057,7 +1085,9 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
         writer.writerow(["Event date", format_uk_date(request.event_date)])
         writer.writerow(["Valid until", format_uk_date(request.expiry_date)])
         writer.writerow(["Redeemable at", ", ".join(venues or [])])
-        writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M")])
+        # With the zone spelled out. The reader has no other way to tell
+        # whether 09:47 was the office clock or the server's.
+        writer.writerow(["Issued", issued_at.strftime("%d %B %Y %H:%M %Z")])
         writer.writerow(["Issued by", issued_by])
         writer.writerow([])
         writer.writerow(["Voucher code", "Value", "Redeemed at", "Date redeemed"])

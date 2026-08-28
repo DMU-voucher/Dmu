@@ -294,7 +294,7 @@ def upload():
     saved_path = None
     try:
         UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y-%m-%d %H%M%S")
+        stamp = core.now_uk().strftime("%Y-%m-%d %H%M%S")
         saved_path = UPLOADS_DIR / f"{stamp} {Path(upload_file.filename).name}"
         saved_path.write_bytes(raw)
     except OSError:
@@ -445,7 +445,9 @@ def generate():
     # printing the same request twice produces the same vouchers, and telling
     # somebody they cannot reprint a lost sheet was getting in the way more than
     # it was protecting anything.
-    issued_at = datetime.now()
+    # UK time, not the host's. See core.now_uk(): this stamp goes on the
+    # summary and names the batch folder, and the server runs on UTC.
+    issued_at = core.now_uk()
     results = []
     started = time.perf_counter()
 
