@@ -83,9 +83,8 @@ def site_gate():
     return Response("Sign in to use the voucher generator.", 401,
                     {"WWW-Authenticate": 'Basic realm="DMU vouchers"'})
 
+# Food and Drink has no mark of its own, so there is only one logo to find.
 LOGO_FILES = {
-    "food_and_drink": ["food-and-drink-logo.png", "food-and-drink-logo.jpg",
-                       "food-and-drink-logo.svg"],
     "dmu": ["dmu-logo.png", "dmu-logo.jpg", "dmu-logo.svg"],
 }
 

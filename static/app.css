@@ -43,16 +43,16 @@ header.top .wrap { padding-bottom: 0; display: flex; align-items: center; gap: 1
 
 /* The real artwork, when it is in assets/. Sized by height so any resolution of
    logo drops in without being told what shape it is, which is the same bargain
-   the voucher layout makes. */
-.fd-mark { height: 34px; width: auto; flex: 0 0 auto; }
-.dmu-mark { height: 38px; width: auto; flex: 0 0 auto; }
+   the voucher layout makes. 46px rather than the voucher's 8mm: a screen has
+   room the printed cell does not, and it is what makes 'LEICESTER' legible. */
+.dmu-mark { height: 46px; width: auto; flex: 0 0 auto; }
 
 /* Stand-in for the DMU logo until that file arrives. Recognisably DMU, plainly
    not the real mark, so nobody ships it thinking the artwork is in place. */
 .dmu-tag {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   flex: 0 0 auto;
   line-height: 1.05;
   font-size: 20px;
@@ -68,17 +68,6 @@ header.top .wrap { padding-bottom: 0; display: flex; align-items: center; gap: 1
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-soft);
-}
-
-.fd-tag {
-  background: var(--fd-orange);
-  color: #fff;
-  font-weight: 700;
-  padding: 6px 10px;
-  border-radius: 3px;
-  font-size: 15px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
 }
 
 header.top h1 { font-size: 21px; margin: 0; font-weight: 700; }

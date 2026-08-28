@@ -4,13 +4,11 @@
 {% macro voucher(v, cfg, logos) %}
 <div class="voucher">
 
+  {# DMU's own lockup, alone. Food and Drink has no mark of its own, so the
+     orange stand-in that used to sit on the left was not waiting for artwork,
+     it was permanent. The words still read on the voucher: voucher_title is
+     "Food & Drink Voucher" and it is set two lines down at 7.5pt. #}
   <div class="v-head">
-    {% if logos.food_and_drink %}
-      <img class="fd-logo" src="{{ logos.food_and_drink }}" alt="Food &amp; Drink">
-    {% else %}
-      <span class="fd-lockup">FOOD<span class="amp">&amp;</span>DRINK</span>
-    {% endif %}
-
     {% if logos.dmu %}
       <img class="dmu-logo" src="{{ logos.dmu }}" alt="De Montfort University Leicester">
     {% else %}

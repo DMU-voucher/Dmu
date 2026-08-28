@@ -47,6 +47,15 @@ OVERLAP_SHARE = 0.25
 # glyph resting exactly on the cut line is not called an escape.
 SLACK = 0.5
 
+# The voucher's own top and bottom padding, from .voucher in voucher.css. Text
+# must stay inside it. The cell test above is too generous to catch the fault
+# this exists for: the voucher is a fixed cell whose foot cannot grow, so
+# anything that makes the artwork taller pushes the bottom line down through
+# the padding and into the border, and it is still inside the 99mm cell while
+# it does it. Vertical only. Glyph side bearings make the same test sideways
+# report ordinary type as a fault, and width is not the constrained axis here.
+VOUCHER_PAD_MM = 3.0
+
 
 def main() -> int:
     print()
@@ -196,6 +205,17 @@ def check_layout(path: Path, config: dict, label: str) -> list[str]:
                     if not cell.contains(_shrink(rect, fitz)):
                         problems.append(f"{where}: {_short(text)} runs outside the voucher")
 
+                border = _voucher_border(cell, boxes)
+                if border is not None:
+                    top = border.y0 + VOUCHER_PAD_MM * MM
+                    bottom = border.y1 - VOUCHER_PAD_MM * MM
+                    for rect, text in here:
+                        r = _shrink(rect, fitz)
+                        if r.y0 < top or r.y1 > bottom:
+                            problems.append(
+                                f"{where}: {_short(text)} runs into the voucher's "
+                                f"margin, so the artwork is taller than the cell")
+
                 for i, (rect_a, text_a) in enumerate(here):
                     for rect_b, text_b in here[i + 1:]:
                         if _buried(rect_a, rect_b) >= OVERLAP_SHARE:
@@ -243,6 +263,12 @@ def _cells(page, fitz) -> list:
             if rect.intersects(page.rect):
                 cells.append(rect)
     return cells
+
+
+def _voucher_border(cell, boxes):
+    """The drawn rectangle of the voucher itself: the biggest box in the cell."""
+    inside = [b for b in boxes if cell.contains(b)]
+    return max(inside, key=lambda b: abs(b.get_area())) if inside else None
 
 
 def _buried(a, b) -> float:

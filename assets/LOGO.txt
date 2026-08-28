@@ -1,0 +1,22 @@
+dmu-logo.png is the University's horizontal lockup, and it is the artwork the
+vouchers and the app pages carry. Unlike everything else in this folder it is
+committed: the server has no upload step, so if the file does not travel with a
+git pull the live site quietly prints a text stand-in instead.
+
+dmu-logo-original.png is the file DMU supplied, 1743 x 749. It is ignored by
+git and nothing renders it. dmu-logo.png is that file at 700px wide with a 32
+colour palette, 12 KB against 58 KB, because the logo is inlined into every
+voucher on a sheet: at full size a 124 voucher run carries 9 MB of it, and the
+server has 512 MB.
+
+Food and Drink has no mark of its own. The old orange stand-in was removed
+rather than left waiting for artwork that does not exist. If one ever turns up,
+call it food-and-drink-logo.png, add it to LOGO_FILES in app.py, and give it a
+place in the voucher header, which now assumes one mark.
+
+If you replace dmu-logo.png:
+
+  1. Keep it a transparent PNG, and keep it about 700px wide.
+  2. Run make_sample_thumbnail.py, or the vendor sheet keeps the old picture.
+  3. Run check_pdf_engine.py. The header height is paid for out of the voucher
+     code's box, and a taller logo can push the artwork out of its cell.

@@ -10,13 +10,14 @@
 
 <header class="top">
   <div class="wrap">
-    {# The same artwork the vouchers carry. Both fall back to a text lockup
-       until somebody drops the files into assets/, so the page is never
-       broken-looking on a fresh copy, just plainer. #}
-    {% if logos.food_and_drink %}
-      <img class="fd-mark" src="{{ logos.food_and_drink }}" alt="Food &amp; Drink">
+    {# The same artwork the vouchers carry, and it falls back to a text lockup
+       the same way, so a copy with an empty assets folder is plainer rather
+       than broken. #}
+    {% if logos.dmu %}
+      <img class="dmu-mark" src="{{ logos.dmu }}"
+           alt="De Montfort University Leicester">
     {% else %}
-      <span class="fd-tag">FOOD &amp; DRINK</span>
+      <span class="dmu-tag">DMU<span>De Montfort University</span></span>
     {% endif %}
 
     <div class="top-title">
@@ -28,13 +29,6 @@
         <p>Everything happens on this computer, nothing is uploaded.</p>
       {% endif %}
     </div>
-
-    {% if logos.dmu %}
-      <img class="dmu-mark" src="{{ logos.dmu }}"
-           alt="De Montfort University Leicester">
-    {% else %}
-      <span class="dmu-tag">DMU<span>De Montfort University</span></span>
-    {% endif %}
   </div>
 </header>
 

@@ -84,43 +84,34 @@ html, body {
   padding: 3mm 3.5mm;
   display: flex;
   flex-direction: column;
-  gap: 1.6mm;
+  gap: 1.2mm;
   background: #fff;
 }
 
-/* Header: Food & Drink lockup left, DMU right, as on the current voucher. */
+/* Header: DMU's lockup, on its own, at the top left where DMU set it. */
 
 .v-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 2mm;
-  padding-bottom: 1.4mm;
+  padding-bottom: 1mm;
   border-bottom: 0.25mm solid var(--rule);
 }
 
-.v-head img.fd-logo { height: 7mm; width: auto; }
+/* 8mm, and the number is measured rather than chosen. The voucher is a fixed
+   99mm cell and the foot cannot grow, so every millimetre here comes out of the
+   box holding the voucher code. Rendered and measured at 7, 8, 8.5, 9 and 10mm:
+   8mm leaves the code box 17.5mm with 1.97mm and 1.45mm of padding round the
+   code, 9mm drops the padding under 1mm, 10mm all but closes it. The margin
+   that 8mm keeps is the room WeasyPrint needs to land the same layout half a
+   millimetre differently on the server.
+
+   'LEICESTER' prints at about 0.9mm at this size, under the voucher's own small
+   print. That is the price of keeping the code at 27pt, which is the thing a
+   vendor keys in with a queue waiting. Making the logo bigger means making the
+   code smaller: check with check_pdf_engine.py before deciding otherwise. */
 .v-head img.dmu-logo { height: 8mm; width: auto; }
-
-.fd-lockup {
-  display: inline-flex;
-  align-items: baseline;
-  background: var(--fd-orange);
-  color: #fff;
-  padding: 1mm 2mm;
-  border-radius: 0.6mm;
-  font-size: 10pt;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-
-.fd-lockup .amp {
-  color: #fff;
-  opacity: 0.85;
-  padding: 0 0.4mm;
-  font-weight: 700;
-}
 
 .dmu-lockup {
   color: var(--dmu-red);
@@ -297,7 +288,7 @@ html, body {
   font-size: 7.8pt;
   font-weight: 600;
   line-height: 1.3;
-  padding: 1.5mm 1.8mm;
+  padding: 1.2mm 1.8mm;
   background: #f6f6f6;
   border-left: 0.8mm solid var(--fd-orange);
   border-radius: 0.4mm;
@@ -312,6 +303,7 @@ html, body {
   flex-direction: column;
   gap: 0.8mm;
   flex: 1 1 auto;
+  min-height: 0;
 }
 
 .v-dates {

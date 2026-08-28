@@ -10,10 +10,11 @@
 
 <header class="top">
   <div class="wrap">
-    {% if logos.food_and_drink %}
-      <img class="fd-mark" src="{{ logos.food_and_drink }}" alt="Food &amp; Drink">
+    {% if logos.dmu %}
+      <img class="dmu-mark" src="{{ logos.dmu }}"
+           alt="De Montfort University Leicester">
     {% else %}
-      <span class="fd-tag">FOOD &amp; DRINK</span>
+      <span class="dmu-tag">DMU<span>De Montfort University</span></span>
     {% endif %}
 
     <div class="top-title">
@@ -22,13 +23,6 @@
          own dates from the export, so they are listed against each batch below. #}
       <p>Redeemable at {{ venues|join(', ') }}.</p>
     </div>
-
-    {% if logos.dmu %}
-      <img class="dmu-mark" src="{{ logos.dmu }}"
-           alt="De Montfort University Leicester">
-    {% else %}
-      <span class="dmu-tag">DMU<span>De Montfort University</span></span>
-    {% endif %}
   </div>
 </header>
 

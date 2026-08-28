@@ -29,6 +29,13 @@ assets/*.png
 assets/*.jpg
 assets/*.svg
 
+# Except DMU's own lockup. The server cannot draw its own branding without it,
+# and there is no upload step in the deploy: if it does not travel with a git
+# pull, the live site quietly prints the text stand-in instead. It is the
+# University's public mark, and it is 12 KB. The full-resolution original stays
+# out, ignored by the lines above.
+!assets/dmu-logo.png
+
 # The loose copy the generator refreshes each run.
 /Vendor instructions.pdf
 

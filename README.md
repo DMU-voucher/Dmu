@@ -129,15 +129,29 @@ below which phone cameras start losing it on ordinary office paper. The app
 tells you the figure on the front page and warns you if a link ever does go too
 far.
 
-## Logos
+## The logo
 
-Drop `dmu-logo.png` and `food-and-drink-logo.png` into the `assets` folder and
-the vouchers will use them. Until then the header uses a plain text stand-in, so
-the tool still works without them.
+`assets/dmu-logo.png` is DMU's horizontal lockup, and every voucher and every
+page in the app carries it. It is the one thing in `assets` that git tracks: the
+deploy is a `git pull` with no upload step, so a logo that stayed out of the
+repository would leave the live site printing the text stand-in. The file DMU
+supplied sits next to it as `dmu-logo-original.png`, which git does ignore.
 
-**After adding the logos, run `make_sample_thumbnail.py`** (see below). The
-vouchers pick the logos up on their own; the picture on the vendor sheet does
-not, because it is a photograph.
+Food and Drink has no mark of its own, so there is nothing to wait for and no
+stand-in for one. The words still read on the artwork: `voucher_title` in
+`config.json` sets "Food & Drink Voucher" beside the value.
+
+The logo is 8mm tall on the voucher, and that number is measured rather than
+chosen. The voucher is a fixed 99mm cell whose foot cannot grow, so every
+millimetre the header takes comes out of the box holding the voucher code. At
+9mm the padding round the code drops under a millimetre; at 10mm it closes up.
+`LEICESTER` prints small as a result. That is the price of keeping the code at
+27pt, which is what a vendor keys in with a queue waiting.
+
+**If you replace the logo, run `make_sample_thumbnail.py` and then
+`check_pdf_engine.py`.** The vouchers pick a new file up on their own, but the
+picture on the vendor sheet does not, and a taller logo can push the artwork out
+of its cell.
 
 ## The picture on the vendor sheet
 
@@ -357,7 +371,7 @@ static/
 Ledger/
   issued_vouchers.csv   the record of everything issued
 Output/                 a folder per batch
-assets/                 the two logo PNGs
+assets/                 DMU's logo, and the original DMU supplied
 ```
 
 The redemption site that used to live in `redeem/`, and the pre-drawn pool of
