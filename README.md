@@ -89,7 +89,7 @@ Output\2026-08-28 ID 12 Test 5\
 | File | What it is |
 | --- | --- |
 | `Print sheet - Test 5 ID 12.pdf` | A4 sheets, six vouchers per page, dashed cut guides. **Print at 100% scale, not "fit to page".** |
-| `Batch summary - Test 5 ID 12.csv` | Every code in the batch, plus blank columns for recording redemptions by hand. Also records the DMU ID and which vendors the run was for. |
+| `Batch summary - Test 5 ID 12.csv` | Every code in the batch and its value. Also records the DMU ID, the venues the run was for, and the time it was issued in UK time. |
 
 Two files, both named for the event and its ID, so a folder can be sent to
 whoever asked for the vouchers exactly as it stands and two batches cannot be
@@ -276,10 +276,14 @@ instead.
 ## Reconciling
 
 The batch summaries say what went out: one per request, in its folder, listing
-every code with blank columns for recording redemptions. Compare them, on the
-voucher code, against however redemptions are being collected: the Microsoft
-Form's response spreadsheet, or the summaries themselves if they were filled in
-on paper.
+every code and its value. Compare them, on the voucher code, against the
+Microsoft Form's response spreadsheet, which is where redemptions are collected.
+
+The summary carries no columns for writing redemptions into. It had two, and
+they were always empty: redemptions are recorded on the form the vendor scans,
+and a blank column that looks like it wants filling in only invites a second
+record that disagrees with the first. The summary says what was printed. The
+form says what was spent.
 
 This only works if the batch folders are kept. Nothing else records what was
 printed.
