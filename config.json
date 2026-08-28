@@ -13,7 +13,7 @@
   "reference_label": "Voucher code",
   "holder_instruction": "Hand this voucher to the vendor to redeem.",
   "venue_intro": "Redeemable only at:",
-  "venue_warning": "Not accepted anywhere else on campus, including the convenience store.",
+  "venue_warning": "Not accepted anywhere else on campus.",
   "valid_until_label": "Valid until",
   "small_print": [
     "Not exchangeable for cash.",
