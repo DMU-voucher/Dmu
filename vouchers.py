@@ -1040,7 +1040,11 @@ def write_batch_summary(path: Path, request: VoucherRequest, vouchers: list[Vouc
     event, the ID and the date identify a batch, and every code inside it
     starts with that ID.
     """
-    with open(path, "w", newline="", encoding="utf-8") as fh:
+    # utf-8-sig, not utf-8. Excel on Windows opens a CSV with no byte order
+    # mark using the machine's ANSI codepage, which here is cp1252, so a pound
+    # sign written as UTF-8 arrives as the two characters "Â£". The mark is
+    # three bytes that tell Excel the file is UTF-8; Excel then hides them.
+    with open(path, "w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.writer(fh)
         writer.writerow(["Event", request.event_name])
         writer.writerow(["DMU ID", request.dmu_id])
