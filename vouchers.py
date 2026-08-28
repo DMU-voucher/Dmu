@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import traceback
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, date
 from pathlib import Path
@@ -32,6 +33,17 @@ CONFIG_PATH = APP_DIR / "config.json"
 LEDGER_PATH = DATA_DIR / "Ledger" / "issued_vouchers.csv"
 OUTPUT_DIR = DATA_DIR / "Output"
 ASSETS_DIR = APP_DIR / "assets"
+
+# How long the last print run took, so the next one can say how far through it
+# is. It lives with the data rather than in the repository: the office machine
+# draws with Chromium and the server with WeasyPrint, on hardware nothing here
+# knows about, so a figure measured on one is no guide to the other.
+PACE_PATH = DATA_DIR / "pace.json"
+
+# What to assume before this copy of the app has ever finished a run. Slower
+# than Chromium manages and quicker than a big WeasyPrint sheet, and wrong only
+# once: the first completed run replaces it with the truth.
+DEFAULT_PACE = {"fixed_seconds": 4.0, "seconds_per_voucher": 0.15}
 
 # The loose copy of the vendor sheet, refreshed after every run so the current
 # one is always to hand without digging through Output.
@@ -593,6 +605,98 @@ def qr_svg(url: str, scale: int = 4) -> str:
 
 
 # --------------------------------------------------------------------------
+# How long a run takes
+# --------------------------------------------------------------------------
+
+def read_pace() -> dict:
+    """The fixed cost and the per voucher cost of a print run, in seconds.
+
+    Measured from real runs on this machine rather than assumed, because the
+    two PDF engines are not remotely comparable and the point of the figure is
+    to tell somebody watching a progress bar how far through it is.
+
+    Both numbers are kept because the shape matters: there is a real fixed cost
+    per run whatever the size, and then a cost per voucher on top. Fitted from
+    the last two runs of different sizes; until there are two, the per voucher
+    figure is carried and only the fixed cost is fitted.
+    """
+    try:
+        saved = json.loads(PACE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return dict(DEFAULT_PACE)
+    pace = dict(DEFAULT_PACE)
+    for key in ("fixed_seconds", "seconds_per_voucher"):
+        value = saved.get(key)
+        if isinstance(value, (int, float)) and 0 <= value < 3600:
+            pace[key] = float(value)
+    return pace
+
+
+def record_pace(vouchers: int, seconds: float) -> None:
+    """Fold a finished run into the estimate.
+
+    The shape matters: a 600 voucher sheet is not a hundred times the work of a
+    6 voucher one, because a good part of a small run is the engine starting up.
+    Two runs of different sizes give a line through them, and the line is what
+    gets stored.
+
+    Until there are two, one run is one point and the split between the fixed
+    cost and the per voucher cost is guesswork: 30/70 is used, which is roughly
+    where a real pair of measurements lands. Either way a run of the size just
+    measured comes out at the time it just took, which is the part somebody
+    watching the bar actually notices.
+    """
+    if vouchers <= 0 or seconds <= 0:
+        return
+    try:
+        previous = json.loads(PACE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        previous = {}
+
+    last_n = previous.get("last_vouchers")
+    last_s = previous.get("last_seconds")
+    fitted = False
+    if isinstance(last_n, int) and isinstance(last_s, (int, float))             and abs(last_n - vouchers) >= 10:
+        per = (seconds - last_s) / (vouchers - last_n)
+        fixed = seconds - per * vouchers
+        # A negative slope or a negative fixed cost means the two runs are not
+        # telling a straight story: a busy machine, or a cold cache on the
+        # first. Fall back to the single point rather than storing a line that
+        # runs backwards.
+        fitted = per >= 0 and fixed >= 0
+    if not fitted:
+        fixed = seconds * 0.3
+        per = seconds * 0.7 / vouchers
+
+    # Swallowed on purpose. This is called after the vouchers are written and
+    # the ledger is updated, so a read-only data folder or a full disk must not
+    # be allowed to turn a finished run into the error page that says nothing
+    # was written anywhere. The cost of losing this file is a progress bar that
+    # guesses.
+    try:
+        PACE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PACE_PATH.write_text(json.dumps({
+            "_comment": "Written after every run so the progress bar can "
+                        "estimate the next one. Delete it and the app goes back "
+                        "to its starting guess. Not a setting: measured.",
+            "fixed_seconds": round(fixed, 2),
+            "seconds_per_voucher": round(per, 4),
+            "fitted_from_two_runs": fitted,
+            "last_vouchers": vouchers,
+            "last_seconds": round(seconds, 2),
+            "measured_at": datetime.now().isoformat(timespec="seconds"),
+        }, indent=2), encoding="utf-8")
+    except OSError:
+        traceback.print_exc()
+
+
+def estimate_seconds(vouchers: int, pace: dict | None = None) -> float:
+    """How long a run of this size should take, at this machine's pace."""
+    pace = pace or read_pace()
+    return max(2.0, pace["fixed_seconds"] + pace["seconds_per_voucher"] * vouchers)
+
+
+# --------------------------------------------------------------------------
 # Assets
 # --------------------------------------------------------------------------
 
@@ -687,6 +791,16 @@ def specimen_voucher() -> "Voucher":
     )
 
 
+# The logo files the artwork can carry, in the order they are looked for. Named
+# rather than "whatever is in assets", because the fingerprint below hashes them
+# and the folder holds more than the app renders: the full resolution original
+# DMU supplied lives there too and git does not carry it, so hashing the folder
+# made the office computer and the server work out different numbers and the
+# front page called the picture out of date for ever.
+LOGO_FILES = {
+    "dmu": ("dmu-logo.png", "dmu-logo.jpg", "dmu-logo.svg"),
+}
+
 # Everything that changes what a voucher looks like. Miss one of these out and
 # the handout quietly shows a picture of the old artwork.
 THUMBNAIL_INPUTS = ("static/voucher.css", "templates/_voucher.html",
@@ -719,12 +833,16 @@ def thumbnail_fingerprint(config: dict) -> str:
     h.update(json.dumps({k: config.get(k) for k in THUMBNAIL_CONFIG_KEYS},
                         sort_keys=True, ensure_ascii=False).encode("utf-8"))
     h.update(SPECIMEN_VALID_UNTIL.encode("utf-8"))
-    # The logos are part of the artwork, so dropping one in makes the picture
-    # stale even though no file the app owns has changed.
-    for name in sorted(p.name for p in ASSETS_DIR.glob("*")
-                       if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg"}):
-        h.update(name.encode("utf-8"))
-        h.update((ASSETS_DIR / name).read_bytes())
+    # The logo is part of the artwork, so dropping one in makes the picture stale
+    # even though no file the app owns has changed. Only the files the app would
+    # actually render count: anything else in assets/ is a source file, and the
+    # server does not have it.
+    for names in LOGO_FILES.values():
+        for name in names:
+            path = ASSETS_DIR / name
+            if path.is_file():
+                h.update(name.encode("utf-8"))
+                h.update(path.read_bytes())
     return h.hexdigest()[:16]
 
 

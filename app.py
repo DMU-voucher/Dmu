@@ -15,6 +15,7 @@ import mimetypes
 import os
 import re
 import secrets
+import time
 import traceback
 import zipfile
 from dataclasses import asdict
@@ -83,10 +84,10 @@ def site_gate():
     return Response("Sign in to use the voucher generator.", 401,
                     {"WWW-Authenticate": 'Basic realm="DMU vouchers"'})
 
-# Food and Drink has no mark of its own, so there is only one logo to find.
-LOGO_FILES = {
-    "dmu": ["dmu-logo.png", "dmu-logo.jpg", "dmu-logo.svg"],
-}
+# Food and Drink has no mark of its own, so there is only one logo to find. The
+# list lives in vouchers.py because the thumbnail fingerprint hashes the same
+# files, and the two must not be able to drift apart.
+LOGO_FILES = core.LOGO_FILES
 
 
 # --------------------------------------------------------------------------
@@ -245,6 +246,10 @@ def base_context(config: dict) -> dict:
         # artwork the moment somebody drops the files into assets/ and nothing
         # has to be pointed at a second copy of them.
         "logos": logo_uris(),
+        # What a run costs on this machine, for the progress bar. Measured from
+        # the last run rather than assumed, because the office machine and the
+        # server draw with different engines at different speeds.
+        "pace": core.read_pace(),
     }
 
 
@@ -439,6 +444,7 @@ def generate():
     issued_at = datetime.now()
     batch = core._next_batch_number(ledger)
     results = []
+    started = time.perf_counter()
 
     try:
         with core.PdfWriter() as writer:
@@ -511,6 +517,11 @@ def generate():
             "run.bat again.",
             token=token,
         )
+
+    # What this run actually cost, so the next one's progress bar is measured
+    # rather than guessed. Only ever recorded from a run that finished.
+    core.record_pace(sum(r["count"] for r in results),
+                     time.perf_counter() - started)
 
     return render_template(
         "done.html",

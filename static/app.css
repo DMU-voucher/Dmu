@@ -300,37 +300,47 @@ a:focus-visible {
 
 .working-card h2 { margin: 0 0 14px; font-size: 18px; }
 
-/* Deliberately indeterminate. The generate is a single request that cannot
-   report how far through it is, and a bar inventing a percentage would be
-   guessing at how long a print run takes on a machine it knows nothing about. */
+/* A real 0 to 100, filled against the time the last run of this size took.
+   It was a looping bar, which never said how far through anything was and gave
+   no moment of being finished. The estimate comes from the server, measured
+   from the previous run, because the office machine draws with Chromium and
+   the server with WeasyPrint at nothing like the same speed. */
 .bar {
-  height: 8px;
+  height: 10px;
   border-radius: 99px;
   background: #ececf1;
   overflow: hidden;
 }
 
-.bar-run {
+.bar-fill {
   height: 100%;
-  width: 38%;
+  width: 0;
   border-radius: 99px;
   background: var(--dmu-red);
-  animation: bar-run 1.4s ease-in-out infinite;
+  /* The width is set every frame, so the only easing wanted is enough to take
+     the edge off the jump to 100% at the end. */
+  transition: width 120ms linear;
 }
 
-@keyframes bar-run {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(300%); }
+.working-count {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dmu-red);
 }
 
-.working-what { margin: 14px 0 0; font-size: 15px; font-weight: 600; }
+.working-left { font-weight: 400; color: var(--ink-soft); }
+
+.working-what { margin: 10px 0 0; font-size: 15px; font-weight: 600; }
 .working-note { margin: 8px 0 0; color: var(--ink-soft); font-size: 13.5px; }
 .working-time { margin: 10px 0 0; }
 
 button[disabled] { opacity: 0.65; cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
-  .bar-run { animation-duration: 3.2s; }
+  /* The bar is information, not decoration, so it still moves. Only the
+     smoothing between frames goes. */
+  .bar-fill { transition: none; }
 }
 
 @media (max-width: 640px) {

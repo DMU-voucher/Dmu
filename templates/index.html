@@ -283,11 +283,16 @@
 <div class="working" id="working" hidden>
   <div class="working-card" role="status" aria-live="polite">
     <h2>Making the vouchers</h2>
-    <div class="bar"><div class="bar-run"></div></div>
+    <div class="bar" id="bar" role="progressbar" aria-valuemin="0"
+         aria-valuemax="100" aria-valuenow="0">
+      <div class="bar-fill" id="bar-fill"></div>
+    </div>
+    <p class="working-count"><span id="bar-pct">0%</span><span
+       class="working-left" id="working-left"></span></p>
     <p class="working-what" id="working-what"></p>
     <p class="working-note">
-      A large batch can take a minute or two. Leave this page open and do not
-      press back: the vouchers are being written and their numbers logged.
+      Leave this page open and do not press back: the vouchers are being
+      written and their numbers logged.
     </p>
     <p class="working-time tiny" id="working-time"></p>
   </div>
@@ -323,6 +328,10 @@
     if (!form) return;
 
     var overlay = document.getElementById('working');
+    var bar = document.getElementById('bar');
+    var fill = document.getElementById('bar-fill');
+    var pct = document.getElementById('bar-pct');
+    var left = document.getElementById('working-left');
     var what = document.getElementById('working-what');
     var clock = document.getElementById('working-time');
     var button = document.getElementById('make-btn');
@@ -330,11 +339,89 @@
 
     var perPage = {{ cfg.vouchers_per_page or 6 }};
 
+    // What a run costs on this machine, measured from the last one that
+    // finished. The office computer draws with Chromium and the server with
+    // WeasyPrint, so a figure from one is no use on the other and neither can
+    // be hardcoded here.
+    var pace = {
+      fixed: {{ pace.fixed_seconds }},
+      each: {{ pace.seconds_per_voucher }}
+    };
+
     function plural(n, word) {
       return n + ' ' + word + (n === 1 ? '' : 's');
     }
 
-    form.addEventListener('submit', function () {
+    function paint(value, note) {
+      var shown = Math.max(0, Math.min(100, value));
+      fill.style.width = shown.toFixed(1) + '%';
+      pct.textContent = Math.round(shown) + '%';
+      bar.setAttribute('aria-valuenow', Math.round(shown));
+      left.textContent = note ? ' · ' + note : '';
+    }
+
+    // The bar is time against an estimate, not work reported back: the whole
+    // run is one request and the engine cannot say how far through a sheet it
+    // is. So it is deliberately honest about being an estimate. It fills to 96%
+    // over the time the last run of this size took and then creeps, rather than
+    // sitting at 100% while the machine is still working, and it only reaches
+    // 100% when the answer is actually in.
+    function curve(ratio) {
+      if (ratio <= 1) return 96 * Math.pow(ratio, 0.9);
+      return 96 + 3 * (1 - Math.exp(-(ratio - 1) * 0.7));
+    }
+
+    // A timer rather than requestAnimationFrame. A browser stops handing out
+    // animation frames to a tab it is not drawing, so on a tab left in the
+    // background the bar sat at 0% for a whole run and then jumped to 100%,
+    // which is worse than the looping bar it replaced. A timer is throttled
+    // when hidden but keeps its appointments, and the 120ms width transition
+    // in the stylesheet does the smoothing anyway.
+    function run(estimate) {
+      var started = Date.now();
+      var lastSecond = -1;
+      function step() {
+        var elapsed = (Date.now() - started) / 1000;
+        // Rounded up, so the last second counts down to "about 1 second left"
+        // rather than giving up and saying "finishing off" while a third of the
+        // estimate is still to run.
+        var remaining = Math.ceil(estimate - elapsed);
+        paint(curve(elapsed / estimate),
+              remaining >= 1 ? 'about ' + plural(remaining, 'second') + ' left'
+                             : 'finishing off');
+        var whole = Math.round(elapsed);
+        if (whole !== lastSecond) {
+          lastSecond = whole;
+          clock.textContent = plural(whole, 'second') + ' so far.';
+        }
+      }
+      step();
+      timer = setInterval(step, 100);
+    }
+
+    function stop() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+
+    // Swap the answer in rather than letting the browser navigate, so the bar
+    // can be seen to reach 100% before the page changes. If anything about
+    // that fails the document is rewritten the blunt way instead, because by
+    // this point the vouchers exist and the response is the only record of
+    // where they went.
+    function show(html) {
+      try {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        document.replaceChild(document.importNode(doc.documentElement, true),
+                              document.documentElement);
+      } catch (err) {
+        document.open();
+        document.write(html);
+        document.close();
+      }
+      window.scrollTo(0, 0);
+    }
+
+    form.addEventListener('submit', function (event) {
       var ticked = form.querySelectorAll('input[name="selected"]:checked');
       // Nothing ticked is refused by the server with a proper message. Showing
       // the overlay for that would be a flash of "working" over an error.
@@ -350,12 +437,8 @@
         + plural(Math.ceil(vouchers / perPage), 'page') + ' to draw.';
 
       overlay.hidden = false;
-
-      var started = Date.now();
-      timer = setInterval(function () {
-        clock.textContent = plural(Math.round((Date.now() - started) / 1000),
-                                   'second') + ' so far.';
-      }, 1000);
+      paint(0, '');
+      run(Math.max(2, pace.fixed + pace.each * vouchers));
 
       // Out of band, because disabling a submit button inside its own submit
       // handler cancels the submission in some browsers.
@@ -363,16 +446,45 @@
         button.disabled = true;
         button.textContent = 'Making them...';
       }, 0);
+
+      // Sending it here rather than letting the form navigate is what lets the
+      // bar finish. Older browsers keep the ordinary submit and the bar simply
+      // runs until the page changes.
+      if (!window.fetch || !window.FormData || !window.DOMParser) return;
+      event.preventDefault();
+
+      fetch(form.getAttribute('action') || window.location.href, {
+        method: 'POST',
+        body: new FormData(form),
+        credentials: 'same-origin'
+      }).then(function (response) {
+        return response.text();
+      }).then(function (html) {
+        stop();
+        paint(100, 'done');
+        setTimeout(function () { show(html); }, 400);
+      }).catch(function () {
+        // The request never landed, so nothing has been written. Put the page
+        // back rather than leaving a bar running over a request that has gone.
+        stop();
+        overlay.hidden = true;
+        button.disabled = false;
+        button.textContent = 'Make the vouchers';
+        window.alert('The vouchers could not be made: the app stopped '
+          + 'answering. Nothing has been written. Check the window running '
+          + 'the app is still open, then try again.');
+      });
     });
 
     // Coming back with the back button can restore this page from the cache
     // with the overlay still up and the button dead. Put it back.
     window.addEventListener('pageshow', function () {
-      if (timer) { clearInterval(timer); timer = null; }
+      stop();
       overlay.hidden = true;
       button.disabled = false;
       button.textContent = 'Make the vouchers';
       clock.textContent = '';
+      paint(0, '');
     });
   })();
 </script>

@@ -371,8 +371,17 @@ static/
 Ledger/
   issued_vouchers.csv   the record of everything issued
 Output/                 a folder per batch
+pace.json               how long the last run took, for the progress bar
 assets/                 DMU's logo, and the original DMU supplied
 ```
+
+`pace.json` sits with the records rather than in the repository, because it is a
+measurement of the machine it was made on: the office computer draws with
+Chromium in a couple of seconds and the server draws the same sheet with
+WeasyPrint at its own speed. The progress bar fills against that figure, so the
+first run after a fresh install shows a guess and every run after it is
+measured. Delete the file and it goes back to the guess. Nothing else reads it,
+and losing it costs nothing.
 
 The redemption site that used to live in `redeem/`, and the pre-drawn pool of
 500,000 numbers that went with it, were removed in August 2026 when the QR code
