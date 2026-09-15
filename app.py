@@ -450,8 +450,13 @@ STEP_TARGET_SECONDS = 15.0
 # is capped low enough that even a badly wrong figure costs seconds.
 FIRST_STEP_MAX_PAGES = 4
 
-# The most any one slice may be, however fast the machine looks.
-MAX_STEP_PAGES = 40
+# The most any one slice may be, however fast the machine looks. It bounds two
+# things at once. A rate measured on an idle machine can flatter a busy one, and
+# this is the ceiling on how wrong that can go. And a slice is held in memory as
+# one string of HTML before it is drawn: DMU's logo is a data URI repeated once
+# per voucher, so a page of six costs about 100 KB and forty pages would be over
+# four megabytes handed to WeasyPrint on a free account's worker.
+MAX_STEP_PAGES = 16
 
 JOBS_DIR = core.DATA_DIR / "Jobs"
 

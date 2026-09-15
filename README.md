@@ -308,6 +308,14 @@ same batch.
 reinstalls what it needs. `python check_pdf_engine.py` tests PDF output on its
 own if you need to look closer.
 
+**`python check_runs.py` makes a whole run and checks it came out.** It exits
+non-zero if anything is wrong, so it can be treated as a test, and it writes to
+a throwaway folder rather than to the real records. Run it after changing
+anything about how a run is drawn, and run it on the server as well: the server
+draws with a different engine, so passing on the office machine proves nothing
+about there. It is the only thing standing between a future change and the
+timeout that took the app down in September 2026.
+
 **A failed run says what it got through, and it is telling the truth.** A run is
 drawn a few pages at a time, so one that stops partway has finished every event
 before the one it stopped on, and those folders are complete. The message names
@@ -435,6 +443,8 @@ wsgi.py                 what the server loads, and what configures it
 .env.example            copy to .env on the server: the password lives there
 requirements-server.txt what to install on the server
 check_pdf_engine.py     renders the artwork and measures it. Run it on the server
+check_runs.py           makes a whole run and checks it came out. Run it after
+                        changing anything about how a run is drawn
 make_sample_thumbnail.py  remakes the vendor sheet's example picture
 static/
   voucher.css           how a voucher looks, screen and print alike
