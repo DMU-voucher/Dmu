@@ -319,15 +319,6 @@
 
     var perPage = {{ cfg.vouchers_per_page or 6 }};
 
-    // What a run costs on this machine, measured from the last one that
-    // finished. The office computer draws with Chromium and the server with
-    // WeasyPrint, so a figure from one is no use on the other and neither can
-    // be hardcoded here.
-    var pace = {
-      fixed: {{ pace.fixed_seconds }},
-      each: {{ pace.seconds_per_voucher }}
-    };
-
     function plural(n, word) {
       return n + ' ' + word + (n === 1 ? '' : 's');
     }
@@ -340,35 +331,42 @@
       left.textContent = note ? ' · ' + note : '';
     }
 
-    // The bar is time against an estimate, not work reported back: the whole
-    // run is one request and the engine cannot say how far through a sheet it
-    // is. So it is deliberately honest about being an estimate. It fills to 96%
-    // over the time the last run of this size took and then creeps, rather than
-    // sitting at 100% while the machine is still working, and it only reaches
-    // 100% when the answer is actually in.
-    function curve(ratio) {
-      if (ratio <= 1) return 96 * Math.pow(ratio, 0.9);
-      return 96 + 3 * (1 - Math.exp(-(ratio - 1) * 0.7));
-    }
+    // The bar is measured now, not timed. A run is asked for a slice of pages
+    // at a time and every slice answers with how many vouchers have actually
+    // been drawn, so this is the real figure rather than a guess against the
+    // clock. It eases towards it rather than jumping, because a slice takes a
+    // few seconds and a bar that moves in steps reads as a bar that has stuck.
+    var shown = 0;
+    var target = 0;
+    var started = 0;
+    var state = null;
 
-    // A timer rather than requestAnimationFrame. A browser stops handing out
-    // animation frames to a tab it is not drawing, so on a tab left in the
-    // background the bar sat at 0% for a whole run and then jumped to 100%,
-    // which is worse than the looping bar it replaced. A timer is throttled
-    // when hidden but keeps its appointments, and the 120ms width transition
-    // in the stylesheet does the smoothing anyway.
-    function run(estimate) {
-      var started = Date.now();
+    // Which run is the live one. Every slice checks this before carrying on,
+    // so a run that has been given up on stops asking for the next piece.
+    // Without it, going back and returning to this page restored the buttons
+    // but left the old run still going: a second click then planned a second
+    // run over the same events, and the two of them drew every voucher twice
+    // into a folder ending "(2)".
+    var current = 0;
+
+    function run() {
+      started = Date.now();
+      shown = 0;
       var lastSecond = -1;
       function step() {
+        // Two thirds of the way to the target each time. Never past it: the
+        // last of the bar belongs to the answer arriving, not to an animation.
+        shown += (target - shown) * 0.12;
         var elapsed = (Date.now() - started) / 1000;
-        // Rounded up, so the last second counts down to "about 1 second left"
-        // rather than giving up and saying "finishing off" while a third of the
-        // estimate is still to run.
-        var remaining = Math.ceil(estimate - elapsed);
-        paint(curve(elapsed / estimate),
-              remaining >= 1 ? 'about ' + plural(remaining, 'second') + ' left'
-                             : 'finishing off');
+        var note = '';
+        if (state && state.done > 0 && state.done < state.total) {
+          var remaining = Math.ceil(elapsed / state.done
+                                    * (state.total - state.done));
+          note = remaining >= 1
+            ? 'about ' + plural(remaining, 'second') + ' left'
+            : 'finishing off';
+        }
+        paint(shown, note);
         var whole = Math.round(elapsed);
         if (whole !== lastSecond) {
           lastSecond = whole;
@@ -401,11 +399,117 @@
       window.scrollTo(0, 0);
     }
 
+    // Put the page back and say what happened, rather than replacing it with
+    // whatever came back. This page is the only place the ticked boxes still
+    // exist, so losing it means choosing the file and ticking them all again.
+    function fail(message) {
+      current++;
+      stop();
+      overlay.hidden = true;
+      button.disabled = false;
+      button.textContent = 'Make the vouchers';
+      clock.textContent = '';
+      paint(0, '');
+      window.alert(message);
+    }
+
+    // fetch resolves on any answer the server manages to give, including one
+    // that says the request failed. A 504 from the load balancer in front of
+    // the app is a perfectly valid HTTP response carrying the hosting
+    // company's own error page, and this used to be swapped straight into the
+    // document: a run that ran out of time looked like the app had been
+    // replaced by "Something went wrong :-(". Anything that is not a 200 is an
+    // error here, and errors do not get drawn.
+    function post(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin'
+      }).then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response;
+      });
+    }
+
+    function describe() {
+      if (!state) return '';
+      return state.events_done
+        ? ' ' + plural(state.events_done, 'event') + ' finished before it '
+          + 'stopped and those folders are complete, so untick them before '
+          + 'trying again or they will be made a second time.'
+        : ' Nothing was written, so there is nothing to undo.';
+    }
+
+    // One slice, then the next. A slice that does not answer is asked for
+    // again: the server is told which step the browser thinks it is on, and a
+    // step it has already done answers with where the run got to instead of
+    // drawing it a second time, so retrying is safe.
+    function slice(retries, mine) {
+      if (mine !== current) return;
+      var body = new FormData();
+      body.append('job', state.job);
+      body.append('after', state.steps);
+      post('{{ url_for('generate_step') }}', body).then(function (response) {
+        return response.json();
+      }).then(function (data) {
+        if (mine !== current) return;
+        if (data.error) { fail(data.error); return; }
+        state = data.state;
+        target = state.total ? state.done / state.total * 100 : 100;
+        what.textContent = plural(state.total, 'voucher') + ' across '
+          + plural(state.events, 'event') + ', '
+          + plural(state.events_done, 'event') + ' finished.';
+        if (data.failed) {
+          fail('Something went wrong while making the PDFs.' + describe()
+            + ' The details are in the window running the app.');
+          return;
+        }
+        if (state.finished) { finish(mine); return; }
+        slice(3, mine);
+      }).catch(function () {
+        if (mine !== current) return;
+        if (retries > 0) {
+          setTimeout(function () { slice(retries - 1, mine); }, 2000);
+          return;
+        }
+        fail('The app stopped answering partway through.' + describe()
+          + ' Check it is still running, then try again.');
+      });
+    }
+
+    function finish(mine) {
+      var body = new FormData();
+      body.append('job', state.job);
+      post('{{ url_for('generate_done') }}', body).then(function (response) {
+        return response.text();
+      }).then(function (html) {
+        if (mine !== current) return;
+        stop();
+        target = 100;
+        paint(100, 'done');
+        setTimeout(function () { show(html); }, 400);
+      }).catch(function () {
+        if (mine !== current) return;
+        // Every voucher exists by this point. Only the page listing where they
+        // went failed to arrive, so this must not read as a failed run.
+        fail('The vouchers were all made. Only the page listing them did not '
+          + 'arrive, so go to Output: there is a folder per event.');
+      });
+    }
+
     form.addEventListener('submit', function (event) {
       var ticked = form.querySelectorAll('input[name="selected"]:checked');
       // Nothing ticked is refused by the server with a proper message. Showing
       // the overlay for that would be a flash of "working" over an error.
       if (!ticked.length) return;
+
+      // Driving the run from here is what keeps every request short. Without
+      // these three the ordinary form submit stands, which asks for the whole
+      // run in one go: correct, and on the server at the mercy of the five
+      // minute limit, which is the best that can be done for a browser that
+      // cannot ask for one piece at a time.
+      if (!window.fetch || !window.FormData || !window.DOMParser) return;
+      event.preventDefault();
 
       var vouchers = 0;
       Array.prototype.forEach.call(ticked, function (box) {
@@ -417,8 +521,11 @@
         + plural(Math.ceil(vouchers / perPage), 'page') + ' to draw.';
 
       overlay.hidden = false;
+      state = null;
+      target = 0;
       paint(0, '');
-      run(Math.max(2, pace.fixed + pace.each * vouchers));
+      run();
+      var mine = ++current;
 
       // Out of band, because disabling a submit button inside its own submit
       // handler cancels the submission in some browsers.
@@ -427,38 +534,31 @@
         button.textContent = 'Making them...';
       }, 0);
 
-      // Sending it here rather than letting the form navigate is what lets the
-      // bar finish. Older browsers keep the ordinary submit and the bar simply
-      // runs until the page changes.
-      if (!window.fetch || !window.FormData || !window.DOMParser) return;
-      event.preventDefault();
-
-      fetch(form.getAttribute('action') || window.location.href, {
-        method: 'POST',
-        body: new FormData(form),
-        credentials: 'same-origin'
-      }).then(function (response) {
-        return response.text();
-      }).then(function (html) {
-        stop();
-        paint(100, 'done');
-        setTimeout(function () { show(html); }, 400);
-      }).catch(function () {
-        // The request never landed, so nothing has been written. Put the page
-        // back rather than leaving a bar running over a request that has gone.
-        stop();
-        overlay.hidden = true;
-        button.disabled = false;
-        button.textContent = 'Make the vouchers';
-        window.alert('The vouchers could not be made: the app stopped '
-          + 'answering. Nothing has been written. Check the window running '
-          + 'the app is still open, then try again.');
-      });
+      post('{{ url_for('generate_plan') }}', new FormData(form))
+        .then(function (response) {
+          return response.json();
+        }).then(function (data) {
+          if (mine !== current) return;
+          // A rejected run is handed to the plain form submit, which renders
+          // the refusal where every other message on this page goes rather
+          // than in an alert of its own.
+          if (data.error) { stop(); form.submit(); return; }
+          state = data.state;
+          slice(3, mine);
+        }).catch(function () {
+          if (mine !== current) return;
+          fail('The vouchers could not be started: the app did not answer. '
+            + 'Nothing has been written. Check it is still running, then try '
+            + 'again.');
+        });
     });
 
     // Coming back with the back button can restore this page from the cache
-    // with the overlay still up and the button dead. Put it back.
+    // with the overlay still up and the button dead. Put it back, and give up
+    // on whatever run it was showing: the buttons say nothing is happening, so
+    // nothing had better still be asking for slices behind them.
     window.addEventListener('pageshow', function () {
+      current++;
       stop();
       overlay.hidden = true;
       button.disabled = false;

@@ -11,5 +11,9 @@
 # 512 MB, so the server draws PDFs with WeasyPrint instead.
 flask
 segno
+# Not just for check_pdf_engine.py: a print run is drawn a few pages at a time
+# so no one request outlives the five minute limit, and this is what joins the
+# pieces back into one sheet. Leave it out and every run goes back to being a
+# single request.
 pymupdf
 weasyprint

@@ -48,6 +48,13 @@ warning at the end.
 That is the whole job. There is nothing to upload afterwards and nothing to sign
 in to.
 
+A big run is drawn a few pages at a time rather than all in one go, and the bar
+counts real vouchers rather than seconds against an estimate: it moves when the
+work moves. The slices are joined back into one print sheet per event, so what
+lands in the folder is one PDF however many pieces it was drawn in. This is what
+lets a thousand-voucher export work on the server, where anything held open for
+more than five minutes is cut off by the host before the app can answer.
+
 ### The dates come from the file, not from you
 
 There is no date field on the page. **Expiry Date** and **Event Date** are read
@@ -301,8 +308,17 @@ same batch.
 reinstalls what it needs. `python check_pdf_engine.py` tests PDF output on its
 own if you need to look closer.
 
-**A failed run leaves nothing behind.** The error page says so and means it:
-nothing is written anywhere until the PDFs exist.
+**A failed run says what it got through, and it is telling the truth.** A run is
+drawn a few pages at a time, so one that stops partway has finished every event
+before the one it stopped on, and those folders are complete. The message names
+the number. Untick those events before trying again, or they will be drawn a
+second time into a second folder with `(2)` on the end. A run that fails on its
+first slice says nothing was written, and that is true too.
+
+**Nothing the host puts on screen replaces the app.** The page checks what came
+back before it draws it, so a server error arrives as a message over the page
+you were on, with your ticks still ticked, rather than as a blank error page
+with the run lost.
 
 **Printing twice is allowed.** Nothing checks a run against a previous one, and
 the same request prints the same vouchers every time, so a lost or spoiled sheet
@@ -337,6 +353,10 @@ by `wsgi.py`, which is the file PythonAnywhere loads.
 
    Only `flask` and `segno` are imported at startup. WeasyPrint and PyMuPDF are
    imported inside the functions that use them, so neither can cause a boot 502.
+   PyMuPDF is not optional any more: it is what joins the slices of a print
+   sheet back together. Without it the app notices before it starts a run and
+   draws the whole thing in one request instead, which is correct and, on the
+   server, at the mercy of the five minute limit again.
 3. **Point the web app at it.** Web tab, WSGI configuration file, replace what
    is in it with the two lines at the top of `wsgi.py`.
 4. **Set the password.** Copy `.env.example` to `.env` in the same folder and
@@ -420,17 +440,22 @@ static/
   voucher.css           how a voucher looks, screen and print alike
   sample-voucher.png    the example picture on the vendor sheet
 Output/                 a folder per batch, which is the only record kept
-pace.json               how long the last run took, for the progress bar
+Jobs/                   print runs in progress; empty when nothing is running
+pace.json               how fast this machine draws, measured
 assets/                 DMU's logo, and the original DMU supplied
 ```
 
 `pace.json` sits with the records rather than in the repository, because it is a
 measurement of the machine it was made on: the office computer draws with
-Chromium in a couple of seconds and the server draws the same sheet with
-WeasyPrint at its own speed. The progress bar fills against that figure, so the
-first run after a fresh install shows a guess and every run after it is
-measured. Delete the file and it goes back to the guess. Nothing else reads it,
-and losing it costs nothing.
+Chromium and the server draws the same sheet with WeasyPrint at its own speed.
+It sizes the first slice of a run, so the first run after a fresh install starts
+from a guess and every run after it starts from a measurement. Delete the file
+and it goes back to the guess. Nothing else reads it, and losing it costs
+nothing.
+
+`Jobs/` is where a run in progress writes down what it has done, along with the
+part-drawn pages of the sheet it is on. A finished run tidies its own pages
+away; anything still there a day later was abandoned and is swept.
 
 The redemption site that used to live in `redeem/`, and the pre-drawn pool of
 500,000 numbers that went with it, were removed in August 2026 when the QR code

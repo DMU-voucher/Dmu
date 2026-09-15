@@ -20,9 +20,18 @@ Uploads/
 # Parsed uploads waiting to be ticked. Holds event names and values from a real
 # export, and is rewritten every time somebody drops a file in.
 Sessions/
+# Print runs in progress, and the part-drawn sheets of the one being drawn now.
+# Same client data as a session, plus real voucher numbers in the parts.
+Jobs/
 Ledger/issued_vouchers.csv
 # Issued-voucher records are operational data, never source.
 Ledger/*.csv
+
+# How fast this machine draws, measured. Per machine by definition: the office
+# computer has Chromium and the server has WeasyPrint, so one copy's figure is
+# no use to the other and committing one would hand the server a wrong guess
+# for its first slice of every run.
+pace.json
 
 # Client artwork, supplied separately.
 assets/*.png

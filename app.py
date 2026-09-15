@@ -15,6 +15,7 @@ import mimetypes
 import os
 import re
 import secrets
+import shutil
 import tempfile
 import time
 import traceback
@@ -247,10 +248,6 @@ def base_context(config: dict) -> dict:
         # artwork the moment somebody drops the files into assets/ and nothing
         # has to be pointed at a second copy of them.
         "logos": logo_uris(),
-        # What a run costs on this machine, for the progress bar. Measured from
-        # the last run rather than assumed, because the office machine and the
-        # server draw with different engines at different speeds.
-        "pace": core.read_pace(),
     }
 
 
@@ -412,14 +409,156 @@ def vendor_instructions():
                      download_name="Vendor instructions.pdf")
 
 
-@app.post("/generate")
-def generate():
+# --------------------------------------------------------------------------
+# Making the vouchers, a few pages at a time
+# --------------------------------------------------------------------------
+#
+# A run used to be one request: click the button, and the browser held a single
+# POST open until every voucher in the export had been drawn. That worked on the
+# office machine and could not work hosted. PythonAnywhere puts a load balancer
+# in front of the app which hangs up on any request still going after five
+# minutes and answers 504 itself, and the export of 8 September was five
+# requests totalling 1,090 vouchers, which is 182 A4 pages. Every row arrives
+# ticked, so that is what one click asked for. Chromium on the office PC draws
+# those 182 pages in about fifteen seconds; the server has no Chromium, draws
+# with WeasyPrint, and shares a CPU with everyone else on the free tier. That
+# is a different order of magnitude, and it ran out of time. What came back was
+# not the app's own "something went wrong" page but the host's, because the run
+# never reached the app's error handling at all.
+#
+# So the browser now asks for the run a slice at a time. Each request draws a
+# few pages, says how far through it is and returns; no single one of them is
+# anywhere near the limit, however big the export. The slices of a print sheet
+# are joined back into one PDF when the event is done, so what lands in the
+# folder is exactly what landed there before.
+#
+# The slices are sized from what this machine has just been measured doing
+# rather than from a figure in a file, because the same code runs on two
+# machines with two engines at very different speeds. The first slice of a run
+# is deliberately small: it is the measurement the rest are sized from.
+
+# What one request should aim to cost. Twenty times under the limit, which is
+# the headroom that matters: a free PythonAnywhere account that has spent its
+# daily CPU allowance is not stopped, it is slowed down, and a slice that
+# normally takes fifteen seconds has to survive being several times that.
+STEP_TARGET_SECONDS = 15.0
+
+# The most the first slice of a run may be, in pages. Every later slice is sized
+# from what this run has just been measured doing, but the first one has only
+# the figure saved from the last run to go on, and that was measured by the
+# other engine if the data folder has ever been copied between machines. So it
+# is capped low enough that even a badly wrong figure costs seconds.
+FIRST_STEP_MAX_PAGES = 4
+
+# The most any one slice may be, however fast the machine looks.
+MAX_STEP_PAGES = 40
+
+JOBS_DIR = core.DATA_DIR / "Jobs"
+
+
+def _job_path(job_id: str) -> Path | None:
+    if not job_id or not TOKEN_PATTERN.fullmatch(job_id):
+        return None
+    return JOBS_DIR / f"{job_id}.json"
+
+
+def _replace(temp: Path, path: Path) -> None:
+    """os.replace, allowing for what Windows does with it.
+
+    A rename over an existing file is atomic on Linux, which is the server and
+    the case this is here for. On Windows it is refused outright whenever
+    anything else has the destination open, and on the office machine that
+    means Dropbox indexing the very folder the app runs from: a run died with
+    "Access is denied" partway through the first slice.
+
+    So it is retried briefly and then done the plain way rather than failing a
+    run over it. The rename is a safeguard against a torn file, not the job
+    itself, and a machine that will not do it is no worse off than before.
+    """
+    for _ in range(10):
+        try:
+            os.replace(temp, path)
+            return
+        except PermissionError:
+            time.sleep(0.05)
+    try:
+        path.write_bytes(temp.read_bytes())
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def save_job(job: dict) -> None:
+    """Written whole or not at all.
+
+    Written beside itself and renamed over the top, rather than into the file
+    directly. A rename is atomic, so a reader never catches this half done.
+    Straight into the file, an interrupted or overlapping write leaves
+    truncated JSON, and the only symptom of that is the run reporting itself
+    expired partway through with no way back to where it had got to.
+    """
+    path = _job_path(job["job"])
+    if path is None:
+        raise ValueError("bad job id")
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(f".{os.getpid()}.tmp")
+    temp.write_text(json.dumps(job), encoding="utf-8")
+    _replace(temp, path)
+
+
+def load_job(job_id: str) -> dict | None:
+    path = _job_path(job_id)
+    if path is None or not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _sweep_jobs(older_than_hours: int = 24) -> None:
+    """A job is the state of a run in progress, not a record of one. What the
+    run produced is in Output and stays there.
+
+    The part-drawn pages go with it. They carry real voucher codes, so leaving
+    them lying about is the same mistake as leaving an upload lying about, and
+    a run abandoned by closing the tab is the ordinary way they are left.
+    """
+    cutoff = datetime.now().timestamp() - older_than_hours * 3600
+    try:
+        live = set()
+        for path in JOBS_DIR.glob("*.json"):
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+            else:
+                live.add(path.stem)
+        for path in JOBS_DIR.iterdir():
+            # By name against the jobs still here, not by age: a folder of
+            # pages whose job has already gone is finished with whatever its
+            # date says, and going by age alone would leave it another day.
+            if path.is_dir():
+                if path.name not in live:
+                    shutil.rmtree(path, ignore_errors=True)
+            # What an interrupted atomic write leaves: the half-written copy,
+            # rather than a half-written job. Harmless, and still worth not
+            # accumulating one per interrupted run.
+            elif path.suffix == ".tmp" and path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _plan_run(config: dict) -> tuple[dict | None, str]:
+    """Read the form and write down what the run is going to do.
+
+    Every check the old single-request handler made, made once here, before a
+    single voucher is drawn. Returns the job, or the message to put on the page.
+    """
+    _sweep_jobs()
     token = request.form.get("token", "")
     session = load_session(token)
     if not session:
-        return _index_with_error("That upload has expired. Choose the CSV again.")
+        return None, "That upload has expired. Choose the CSV again."
 
-    config = core.load_config()
     selected = []
     for raw in request.form.getlist("selected"):
         try:
@@ -429,10 +568,7 @@ def generate():
         if 0 <= i < len(session["requests"]):
             selected.append(i)
     if not selected:
-        return _index_with_error("Tick at least one event to make vouchers for.",
-                                 token=token)
-
-    issued_by = (request.form.get("issued_by") or "").strip()
+        return None, "Tick at least one event to make vouchers for."
 
     # No dates to read or check here any more. Both come off the row in the
     # export, and a row without a usable expiry never reaches this point:
@@ -445,89 +581,309 @@ def generate():
     # printing the same request twice produces the same vouchers, and telling
     # somebody they cannot reprint a lost sheet was getting in the way more than
     # it was protecting anything.
-    # UK time, not the host's. See core.now_uk(): this stamp goes on the
-    # summary and names the batch folder, and the server runs on UTC.
-    issued_at = core.now_uk()
-    results = []
+    job = {
+        "job": secrets.token_urlsafe(12),
+        "token": token,
+        "issued_by": (request.form.get("issued_by") or "").strip(),
+        # UK time, not the host's. See core.now_uk(): this stamp goes on the
+        # summary and names the batch folder, and the server runs on UTC. Taken
+        # once for the whole run, so a run that spans midnight does not name its
+        # last folder for a different day than its first.
+        "issued_at": core.now_uk().isoformat(),
+        "venues": venues,
+        "queue": selected,
+        "item": 0,
+        "voucher": 0,
+        "parts": [],
+        # Whether a print sheet can be drawn in pieces and put back together.
+        # Without PyMuPDF it cannot, and an event is then drawn in one go: a
+        # slower run, and on the server one that can still be cut off, but a
+        # whole sheet either way. Settled once, here, so a server that loses
+        # the library mid-run does not start slicing sheets it cannot rejoin.
+        "sliced": core.pdf_merge_available(),
+        "results": [],
+        "total": sum(session["requests"][i].count for i in selected),
+        "done_vouchers": 0,
+        "seconds": 0.0,
+        "steps": 0,
+        "finished": False,
+    }
+    save_job(job)
+    return job, ""
+
+
+def _slice_size(job: dict, per_page: int, remaining: int) -> int:
+    """How many vouchers this request should draw.
+
+    Sized from the rate this run has actually been managing, which includes
+    whatever each slice costs to set up, so the estimate errs slow. That is the
+    right direction to be wrong in: too small only costs a round trip.
+    """
+    # Nothing to size when the sheet cannot be put back together: the event is
+    # drawn in one piece, which is the only way it comes out whole.
+    if not job.get("sliced", True):
+        return remaining
+    done, seconds = job["done_vouchers"], job["seconds"]
+    if done < per_page or seconds <= 0:
+        # Nothing measured yet this run, so the figure the last one saved
+        # stands in. That is what pace.json is for, and it lives with the data
+        # rather than in the repository precisely because the office machine
+        # and the server draw at different speeds.
+        rate, ceiling = core.read_pace()["seconds_per_voucher"], FIRST_STEP_MAX_PAGES
+    else:
+        rate, ceiling = seconds / done, MAX_STEP_PAGES
+    pages = int(STEP_TARGET_SECONDS / max(rate * per_page, 1e-6))
+    return min(max(1, min(pages, ceiling)) * per_page, remaining)
+
+
+def _run_step(job: dict, writer: core.PdfWriter, config: dict) -> dict:
+    """Draw the next slice of the run. The writer is already open.
+
+    Everything this touches is written down before it returns, so the run can be
+    picked up from the next request whichever worker process answers it.
+    """
+    if job["finished"]:
+        return job
+
+    session = load_session(job["token"])
+    if not session:
+        raise RuntimeError("the upload behind this run has expired")
+
+    per_page = int(config.get("vouchers_per_page") or 6)
+    issued_at = core.read_stamp(job["issued_at"])
+    req = session["requests"][job["queue"][job["item"]]]
+
     started = time.perf_counter()
+    size = _slice_size(job, per_page, req.count - job["voucher"])
+    vs = core.build_vouchers(req, job["venues"])
+    # Drawn beside the slice and renamed over it, for the same reason the job
+    # file is. Two workers can end up drawing the same slice at once: a request
+    # the load balancer gave up on is still running, and the retry that follows
+    # it computes the same name from the same position in the run. Renaming
+    # means the loser's file is replaced whole rather than interleaved with the
+    # winner's, so the sheet they both feed cannot end up part-written.
+    part = JOBS_DIR / job["job"] / f"{job['item']:03d}-{job['voucher']:06d}.pdf"
+    drawing = part.with_suffix(f".{os.getpid()}.tmp")
+    writer.write(
+        render_sheet(vs[job["voucher"]:job["voucher"] + size], config,
+                     req.event_name),
+        drawing)
+    _replace(drawing, part)
+
+    job["parts"].append(str(part))
+    job["voucher"] += size
+    job["done_vouchers"] += size
+    job["seconds"] += time.perf_counter() - started
+    job["steps"] += 1
+
+    if job["voucher"] >= req.count:
+        # The folder is made here, at the end, rather than when the event
+        # started. A run abandoned halfway through an event, by closing the tab
+        # or losing the network, used to leave an empty folder behind named
+        # exactly like a real batch, and the next attempt then wrote "(2)"
+        # beside it. One folder per request, with the ID in its name, because
+        # this folder is what gets sent to whoever asked for the vouchers.
+        out_dir = core.unique_output_dir(req.event_name, issued_at, req.dmu_id)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Named for the batch, because these files leave the folder: two
+        # batches downloaded as two zips used to unpack into two files called
+        # Print sheet.pdf.
+        #
+        # The page count is checked rather than assumed. It is the one thing
+        # that would let a sheet go out short: the slices are separate files
+        # written by separate requests, and a sheet quietly missing a page is
+        # worse than a run that stops and says so.
+        drawn = core.merge_pdfs([Path(p) for p in job["parts"]],
+                                out_dir / core.batch_file_name(
+                                    "Print sheet", req.event_name, req.dmu_id,
+                                    ".pdf"))
+        expected = -(-req.count // per_page)
+        if drawn is not None and drawn != expected:
+            raise RuntimeError(
+                f"{req.event_name} came out {drawn} pages, not {expected}")
+        core.write_batch_summary(
+            out_dir / core.batch_file_name(
+                "Batch summary", req.event_name, req.dmu_id, ".csv"),
+            req, vs, job["issued_by"], issued_at, job["venues"])
+
+        # No vendor sheet and no copy of the export in here. The vendor sheet is
+        # the same handout for every batch in the run and goes to vendors rather
+        # than to the requestor, so it is downloaded on its own from the done
+        # page. The export copy was the whole uploaded file, so sending one
+        # requestor their folder showed them every other request in it; the file
+        # itself is still kept in Uploads for the audit trail.
+        job["results"].append({
+            "event_name": req.event_name,
+            "dmu_id": req.dmu_id,
+            "count": req.count,
+            "value_display": req.value_display,
+            "total_display": req.total_display,
+            "first_code": vs[0].dmu_code,
+            "last_code": vs[-1].dmu_code,
+            # Per event now, because the export carries a date per row.
+            "valid_until": core.format_uk_date(req.expiry_date),
+            "event_date": core.format_uk_date(req.event_date),
+            "folder": str(out_dir),
+            "pages": -(-req.count // per_page),
+        })
+        job["item"] += 1
+        job["voucher"] = 0
+        job["parts"] = []
+
+    if job["item"] >= len(job["queue"]):
+        job["finished"] = True
+        # Refresh the loose copy that lives with the records. Its own
+        # try/except, because the vouchers have already been written by this
+        # point: a failure here must not be reported as a failed run.
+        try:
+            writer.write(render_vendor_sheet(config), core.LOOSE_VENDOR_PDF)
+        except Exception:
+            traceback.print_exc()
+        # What this run actually cost, so the next one's first slice is sized
+        # from a real figure. Drawing time only: the browser's round trips and
+        # the engine starting up for each slice are both outside the clock, and
+        # what is left is the part that scales with the number of vouchers,
+        # which is the part being asked for here.
+        core.record_pace(job["done_vouchers"], job["seconds"])
+        shutil.rmtree(JOBS_DIR / job["job"], ignore_errors=True)
+
+    save_job(job)
+    return job
+
+
+def _job_state(job: dict) -> dict:
+    """What the page needs to draw the bar. Never the folders: a half-finished
+    run has nothing to offer yet, and the done page is where they appear."""
+    return {
+        "job": job["job"],
+        "total": job["total"],
+        "done": job["done_vouchers"],
+        "events_done": len(job["results"]),
+        "events": len(job["queue"]),
+        "steps": job["steps"],
+        "finished": job["finished"],
+    }
+
+
+def _step_failed(job: dict | None):
+    """What to say when a slice will not draw.
+
+    Deliberately not "nothing was written anywhere", which is what the old
+    single-request handler said and which a sliced run can make untrue: batches
+    finished before the one that failed are complete and on disk. Saying so is
+    the difference between somebody reprinting one event and reprinting five.
+    """
+    traceback.print_exc()
+    done = len(job["results"]) if job else 0
+    where = ""
+    if done:
+        where = (f" {done} of the events were finished before it stopped and "
+                 "their folders are complete, so only the rest need doing "
+                 "again. Untick the ones already made before trying again, or "
+                 "they will be drawn a second time into a second folder.")
+    return _index_with_error(
+        "Something went wrong while making the PDFs." + (where or
+        " Nothing was written anywhere, so there is nothing to undo.") +
+        " The details are in the black command window behind this page. If it "
+        "mentions 'playwright' or 'chromium', close the app and run run.bat "
+        "again.",
+        token=(job or {}).get("token"))
+
+
+@app.post("/generate")
+def generate():
+    """The whole run in one request.
+
+    What a browser with no JavaScript still posts to, and what the office
+    machine is perfectly happy with. One writer is opened for the lot, so
+    nothing here costs more than it did before the run was sliced.
+
+    A browser that can drive the slices itself does not come through here; see
+    /generate/plan below. On the server this is the path that can still be cut
+    off by the load balancer, and there is no way round that for a client that
+    cannot ask for one piece at a time.
+    """
+    config = core.load_config()
+    job, error = _plan_run(config)
+    if job is None:
+        return _index_with_error(error, token=request.form.get("token", ""))
 
     try:
         with core.PdfWriter() as writer:
-            for i in selected:
-                req = session["requests"][i]
-                vs = core.build_vouchers(req, venues)
-                # One folder per request, with the ID in its name, because this
-                # folder is what gets sent to whoever asked for the vouchers.
-                out_dir = core.unique_output_dir(req.event_name, issued_at, req.dmu_id)
-                out_dir.mkdir(parents=True, exist_ok=True)
+            while not job["finished"]:
+                _run_step(job, writer, config)
+    except Exception:
+        return _step_failed(job)
 
-                # Named for the batch, because these files leave the folder:
-                # two batches downloaded as two zips used to unpack into two
-                # files called Print sheet.pdf.
-                sheet_pdf = out_dir / core.batch_file_name(
-                    "Print sheet", req.event_name, req.dmu_id, ".pdf")
-                writer.write(render_sheet(vs, config, req.event_name), sheet_pdf)
+    return _done_page(job, config)
 
-                core.write_batch_summary(
-                    out_dir / core.batch_file_name(
-                        "Batch summary", req.event_name, req.dmu_id, ".csv"),
-                    req, vs, issued_by, issued_at, venues)
 
-                # No vendor sheet and no copy of the export in here. The vendor
-                # sheet is the same handout for every batch in the run and goes
-                # to vendors rather than to the requestor, so it is downloaded
-                # on its own from the done page. The export copy was the whole
-                # uploaded file, so sending one requestor their folder showed
-                # them every other request in it; the file itself is still kept
-                # in Uploads for the audit trail.
+@app.post("/generate/plan")
+def generate_plan():
+    """Work out the run and hand it back for the browser to ask for in slices.
 
-                results.append({
-                    "event_name": req.event_name,
-                    "dmu_id": req.dmu_id,
-                    "count": req.count,
-                    "value_display": req.value_display,
-                    "total_display": req.total_display,
-                    "first_code": vs[0].dmu_code,
-                    "last_code": vs[-1].dmu_code,
-                    # Per event now, because the export carries a date per row.
-                    "valid_until": core.format_uk_date(req.expiry_date),
-                    "event_date": core.format_uk_date(req.event_date),
-                    "folder": str(out_dir),
-                    "pages": -(-len(vs) // int(config.get("vouchers_per_page") or 6)),
-                })
+    JSON, and answers 200 with an `error` in it rather than a status code, so
+    the page can put a rejected run's message where every other one goes.
+    """
+    config = core.load_config()
+    job, error = _plan_run(config)
+    if job is None:
+        return jsonify({"error": error}), 200
+    return jsonify({"state": _job_state(job)}), 200
 
-            # Refresh the loose copy that lives with the records. Its own
-            # try/except, because the vouchers have already been written by
-            # this point: a failure here must not be reported as "nothing was
-            # written anywhere", which is what the handler below says.
-            try:
-                writer.write(render_vendor_sheet(config), core.LOOSE_VENDOR_PDF)
-            except Exception:
-                traceback.print_exc()
+
+@app.post("/generate/step")
+def generate_step():
+    """One slice of a run.
+
+    `after` is where the browser thinks the run has got to. A step that has
+    already been done answers with the state rather than drawing it twice,
+    which is what makes retrying a request whose answer went missing safe.
+    """
+    job = load_job(request.form.get("job", ""))
+    if not job:
+        return jsonify({"error": "That run has expired. Start it again."}), 200
+
+    try:
+        after = int(request.form.get("after", "-1"))
+    except ValueError:
+        after = -1
+    if after >= 0 and job["steps"] > after:
+        return jsonify({"state": _job_state(job)}), 200
+
+    config = core.load_config()
+    try:
+        with core.PdfWriter() as writer:
+            _run_step(job, writer, config)
     except Exception:
         traceback.print_exc()
+        return jsonify({"failed": True,
+                        "events_done": len(job["results"]),
+                        "state": _job_state(job)}), 200
+    return jsonify({"state": _job_state(job)}), 200
+
+
+@app.post("/generate/done")
+def generate_done():
+    """The finished page for a run the browser drove itself."""
+    job = load_job(request.form.get("job", ""))
+    if not job or not job["finished"]:
         return _index_with_error(
-            "Something went wrong while making the PDFs. Nothing was written "
-            "anywhere, so there is nothing to undo. "
-            "The details are in the black command window behind this page. If "
-            "it mentions 'playwright' or 'chromium', close the app and run "
-            "run.bat again.",
-            token=token,
-        )
+            "That run is no longer here to finish. The vouchers it had already "
+            "made are in Output.", token=(job or {}).get("token"))
+    return _done_page(job, core.load_config())
 
-    # What this run actually cost, so the next one's progress bar is measured
-    # rather than guessed. Only ever recorded from a run that finished.
-    core.record_pace(sum(r["count"] for r in results),
-                     time.perf_counter() - started)
 
+def _done_page(job: dict, config: dict):
     return render_template(
         "done.html",
         cfg=config,
         hosted=HOSTED,
-        results=results,
-        venues=venues,
+        results=job["results"],
+        venues=job["venues"],
         logos=logo_uris(),
-        issued_by=issued_by,
+        issued_by=job["issued_by"],
         qr_ready=core.qr_url_configured(config),
         qr_url=core.qr_url(config),
     )

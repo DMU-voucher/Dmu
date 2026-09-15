@@ -79,6 +79,21 @@ def now_uk() -> datetime:
     return datetime.now().astimezone()
 
 
+def read_stamp(text: str) -> datetime:
+    """A stamp written by now_uk(), read back still knowing it is UK time.
+
+    A run is drawn over several requests now, so the moment it started is
+    written down and picked up again rather than held in memory, and plain
+    fromisoformat is not enough to do that faithfully. It rebuilds the offset
+    but not the zone: +01:00 comes back as a fixed hour ahead of UTC, and
+    strftime("%Z") on that prints "UTC+01:00" where it used to print "BST".
+    That string goes in the Issued row of every batch summary, and naming the
+    clock is the whole reason the row says its zone at all.
+    """
+    stamp = datetime.fromisoformat(text)
+    return stamp.astimezone(UK_TIME) if UK_TIME is not None else stamp
+
+
 
 # --------------------------------------------------------------------------
 # Config
@@ -510,8 +525,13 @@ def read_pace() -> dict:
     """The fixed cost and the per voucher cost of a print run, in seconds.
 
     Measured from real runs on this machine rather than assumed, because the
-    two PDF engines are not remotely comparable and the point of the figure is
-    to tell somebody watching a progress bar how far through it is.
+    two PDF engines are not remotely comparable: Chromium on the office
+    computer and WeasyPrint on the server, which has no Chromium to give it.
+
+    What reads this is the first slice of a run. A run is drawn a few pages at
+    a time and every slice after the first is sized from what this run has just
+    been seen doing, but the first one has nothing of its own to go on. The
+    progress bar no longer reads it at all: it is fed by the run itself.
 
     Both numbers are kept because the shape matters: there is a real fixed cost
     per run whatever the size, and then a cost per voucher on top. Fitted from
@@ -531,7 +551,7 @@ def read_pace() -> dict:
 
 
 def record_pace(vouchers: int, seconds: float) -> None:
-    """Fold a finished run into the estimate.
+    """Fold a finished run into the figure the next one starts from.
 
     The shape matters: a 600 voucher sheet is not a hundred times the work of a
     6 voucher one, because a good part of a small run is the engine starting up.
@@ -573,9 +593,10 @@ def record_pace(vouchers: int, seconds: float) -> None:
     try:
         PACE_PATH.parent.mkdir(parents=True, exist_ok=True)
         PACE_PATH.write_text(json.dumps({
-            "_comment": "Written after every run so the progress bar can "
-                        "estimate the next one. Delete it and the app goes back "
-                        "to its starting guess. Not a setting: measured.",
+            "_comment": "Written after every run, so the next one knows how "
+                        "big a slice of pages this machine can draw in one go. "
+                        "Delete it and the app goes back to its starting "
+                        "guess. Not a setting: measured.",
             "fixed_seconds": round(fixed, 2),
             "seconds_per_voucher": round(per, 4),
             "fitted_from_two_runs": fitted,
@@ -587,10 +608,6 @@ def record_pace(vouchers: int, seconds: float) -> None:
         traceback.print_exc()
 
 
-def estimate_seconds(vouchers: int, pace: dict | None = None) -> float:
-    """How long a run of this size should take, at this machine's pace."""
-    pace = pace or read_pace()
-    return max(2.0, pace["fixed_seconds"] + pace["seconds_per_voucher"] * vouchers)
 
 
 # --------------------------------------------------------------------------
@@ -1001,6 +1018,68 @@ class PdfWriter:
         # says A4 portrait with no margin, and WeasyPrint honours it.
         self._weasy.HTML(string=html, base_url=base_url.as_uri() + "/").write_pdf(
             str(out_path))
+
+
+def merge_pdfs(parts: list[Path], out_path: Path) -> int | None:
+    """Join slices of one print sheet back into the single PDF it should be.
+
+    Returns the number of pages written, so the caller can check the sheet is
+    as long as it should be rather than trusting that it is. The slices are
+    separate files written by separate requests, and a sheet quietly missing a
+    page is worse than a run that stops and says why. None where there is no
+    PyMuPDF to count them with, which is also the case where there was only
+    ever one slice and nothing to get wrong.
+
+    A print run is drawn a few pages at a time rather than all at once, because
+    the hosted copy sits behind a load balancer that hangs up on any request
+    still going after five minutes, and a thousand vouchers is a hundred and
+    eighty pages. Each slice is a real PDF on disk; this puts them back in
+    order. One slice is the common case, and is the only case on a machine
+    without PyMuPDF, so it is moved rather than merged and imports nothing.
+    """
+    if not parts:
+        raise ValueError("nothing to merge")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if len(parts) == 1:
+        # Nothing imported on this path. It is the one a machine without
+        # PyMuPDF takes for every event, because pdf_merge_available() being
+        # false is what makes a run draw each event in a single slice.
+        shutil.move(str(parts[0]), str(out_path))
+    else:
+        import pymupdf  # noqa: PLC0415  - only a sliced run gets here
+
+        merged = pymupdf.open()
+        try:
+            for part in parts:
+                with pymupdf.open(str(part)) as doc:
+                    merged.insert_pdf(doc)
+            merged.save(str(out_path))
+        finally:
+            merged.close()
+        for part in parts:
+            part.unlink(missing_ok=True)
+
+    try:
+        import pymupdf  # noqa: PLC0415
+    except Exception:
+        return None
+    with pymupdf.open(str(out_path)) as doc:
+        return doc.page_count
+
+
+def pdf_merge_available() -> bool:
+    """Whether a run can be drawn in slices at all.
+
+    Checked before a sliced run starts rather than discovered halfway through
+    it, so a server missing PyMuPDF draws the old way and is slow, instead of
+    writing half a print sheet and stopping.
+    """
+    try:
+        import pymupdf  # noqa: F401,PLC0415
+    except Exception:
+        return False
+    return True
 
 
 def pdf_engines_available() -> dict[str, str]:
