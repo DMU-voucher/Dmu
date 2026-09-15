@@ -104,7 +104,18 @@ if not _inside(core.DATA_DIR.resolve(), SCRATCH):
 
 # Obviously invented. A check that quotes a real event name in its output is a
 # check nobody can paste into a ticket.
-EVENTS = [("901", "Check Event A", 90), ("902", "Check Event B", 40)]
+#
+# --quick makes the events small. Everything below is still exercised: the run
+# is still sliced, still rejoined, still picked up by another process. It is for
+# the server, where drawing is the whole cost. A free PythonAnywhere account has
+# a daily CPU allowance of about a hundred seconds, and running out of it does
+# not stop the site, it slows everything down for the rest of the day. The full
+# size below draws over fourteen hundred vouchers across all the checks, which
+# WeasyPrint will not do inside that. --quick is roughly a quarter of it, and
+# even that is worth spending deliberately rather than by accident.
+QUICK = "--quick" in sys.argv
+EVENTS = ([("901", "Check Event A", 30), ("902", "Check Event B", 6)] if QUICK
+          else [("901", "Check Event A", 90), ("902", "Check Event B", 40)])
 TOTAL = sum(count for _, _, count in EVENTS)
 
 HEADER = ('"ID","Event Name ","Number of Vouchers","Value Per Voucher",'
@@ -198,7 +209,11 @@ def codes_in(pdf: Path) -> list[str]:
     import pymupdf  # noqa: PLC0415
     with pymupdf.open(str(pdf)) as doc:
         text = "\n".join(doc[i].get_text() for i in range(doc.page_count))
-    return re.findall(r"\b90\d-\d{2,3}\b", text)
+    # One to three digits after the dash: a code is padded to the width of its
+    # own event's count, so an event of 6 prints 902-1 and one of 600 prints
+    # 901-001. Matching only the wide form made --quick read every sheet as
+    # empty, which looked exactly like the app losing them.
+    return re.findall(r"\b90\d-\d{1,3}\b", text)
 
 
 def pages_in(pdf: Path) -> int:
@@ -336,7 +351,8 @@ def check_it_survives_a_restart(client) -> list[str]:
         return ["surviving a restart: the run finished in one slice, "
                 "so nothing was carried across"]
     finished = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), "--finish", state["job"]],
+        [sys.executable, str(Path(__file__).resolve()), "--finish", state["job"]]
+        + (["--quick"] if QUICK else []),
         capture_output=True, text=True, cwd=str(HERE), env=dict(os.environ))
     if finished.returncode != 0:
         return ["surviving a restart: the new process could not finish the run: "
@@ -557,7 +573,8 @@ def run_without_pymupdf() -> int:
 
 def check_without_pymupdf(_client=None) -> list[str]:
     out = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), "--no-pymupdf"],
+        [sys.executable, str(Path(__file__).resolve()), "--no-pymupdf"]
+        + (["--quick"] if QUICK else []),
         capture_output=True, text=True, cwd=str(HERE), env=dict(os.environ))
     if out.returncode != 0:
         return ["without PyMuPDF: " + (out.stderr or out.stdout).strip()[-400:]]
@@ -575,7 +592,12 @@ def main() -> int:
         engine = writer.engine
     print(f"  Drawing with: {engine}")
     print(f"  Sheets can be rejoined: {core.pdf_merge_available()}")
-    print(f"  Making {TOTAL} vouchers across {len(EVENTS)} events, each time")
+    print(f"  Making {TOTAL} vouchers across {len(EVENTS)} events, each time"
+          + (", quick" if QUICK else ""))
+    if not QUICK:
+        print("  On a free PythonAnywhere account use --quick: at this size the")
+        print("  checks together draw more than the day's CPU allowance, and")
+        print("  running out slows the site down rather than stopping it.")
     print()
     print("  Two of these break a run on purpose, so expect tracebacks above")
     print("  the results. They are the app reporting what it was handed. Read")

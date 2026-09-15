@@ -316,6 +316,14 @@ draws with a different engine, so passing on the office machine proves nothing
 about there. It is the only thing standing between a future change and the
 timeout that took the app down in September 2026.
 
+**On the server, run `python3.10 check_runs.py --quick`.** Drawing is the whole
+cost of this check, and a free PythonAnywhere account has a daily CPU allowance
+of about a hundred seconds. At full size the checks together draw more than
+fourteen hundred vouchers, which is well past it, and running out does not stop
+the site: it slows everything down until the allowance resets, which looks
+exactly like the fault this check exists to catch. `--quick` does everything at
+about a quarter of the size. Spend it deliberately, just after a deploy.
+
 **A failed run says what it got through, and it is telling the truth.** A run is
 drawn a few pages at a time, so one that stops partway has finished every event
 before the one it stopped on, and those folders are complete. The message names
