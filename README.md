@@ -379,6 +379,13 @@ result with Word and reading it back off the PDF:
   which on a page with no margin put the left-hand column half a millimetre off
   the paper and left 7.5mm spare down the right. The whole sheet printed
   visibly skewed. The table indent is set explicitly to stop it.
+- **One venue line is deliberately left spare.** The pad is a Word file so it
+  can be edited, and adding a venue is one of the things people edit. Without
+  the spare line the code panel sits exactly on the bottom padding, so a line
+  typed into the list pushed it 2.6mm past the floor and the row, which is set
+  to an exact height, silently stopped drawing it. The panel went missing with
+  no warning on screen. There is room for a typed fifth venue now; a sixth wants
+  putting in `config.json` instead, which rebuilds the pad around it properly.
 - **Word cannot pin a paragraph to the bottom of a cell.** The printed artwork
   pins the code panel to the foot of the voucher with a flex layout; here the
   gap above it is padded out instead, from a measurement of how tall the content

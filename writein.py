@@ -96,6 +96,20 @@ CODE_MARK = "[code]"
 CONTENT_END_MM = 77.0
 CONTENT_PER_VENUE_MM = 4.2
 
+# One venue line of the cell is deliberately left unused.
+#
+# The pad is a Word file so it can be edited, and adding a venue to the list is
+# one of the things people edit. Without this the code panel sits exactly on the
+# bottom padding, so a line typed into the list pushes the panel 2.6mm past the
+# floor: measured, by adding a line to a built pad and converting it. A row set
+# to an exact height does not grow and does not complain, it just stops drawing,
+# so the panel goes quietly missing and only shows up on the print.
+#
+# Reserving a line costs a 4.2mm gap above the panel on a pad nobody edits, and
+# buys a typed fifth venue that fits. A sixth needs the venue putting in
+# config.json, which rebuilds the pad around it properly.
+SPARE_VENUE_LINES = 1
+
 
 # --------------------------------------------------------------------------
 # The XML that python-docx has no API for
@@ -257,7 +271,8 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
     # Everything the venue list has not already spent, between the end of the
     # small print and the bottom padding. Clamped at nothing to give away, which
     # is what a list longer than the artwork's own six-venue ceiling leaves.
-    content_end = CONTENT_END_MM + CONTENT_PER_VENUE_MM * (len(venues) - 3)
+    content_end = CONTENT_END_MM + CONTENT_PER_VENUE_MM * (
+        len(venues) - 3 + SPARE_VENUE_LINES)
     room = (CELL_H.mm - CELL_PAD.mm) - content_end
     label = _para(cell, space_before=max(3.0, room * 72 / 25.4), space_after=0,
                   align=WD_ALIGN_PARAGRAPH.CENTER)
