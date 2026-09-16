@@ -273,11 +273,31 @@ a run adds one of its own. Two things push it down and the harder one wins:
   instruction line, the list and the code together, rather than taking it all
   out of the code.
 
-The sizes are measured rather than chosen: the code box comes out at 17.5mm
-with three venues, 16.1mm with four, 15.4mm with five and 13.8mm with six, and
-each step of the ladder fits its box with a millimetre and a half to spare.
-`check_pdf_engine.py` draws all of those combinations and measures them, so a
-change here that stops fitting fails the check rather than reaching paper.
+The sizes are measured rather than chosen, and `check_pdf_engine.py` draws all
+of those combinations and measures them, so a change here that stops fitting
+fails the check rather than reaching paper.
+
+**A one-off vendor now makes five rows, and five rows fit.** With Simply Fresh
+on the settled list, any run that types a vendor into the box prints five. That
+was measured in September 2026 through the app's own rendering, with the longest
+name already on the list used as the one-off: five rows, none of them wrapping,
+the foot 3.3mm clear of the bottom of the voucher and the small print still
+clear of the code box.
+
+Five and six venues were nevertheless given a slightly smaller list at the same
+time, 7.6 to 7.2pt and 7 to 6.6pt, which takes the code box from 15.8mm to
+16.7mm at five and from 14.3mm to 15.5mm at six. That is margin rather than a
+fix: it buys room on the engine the office machine cannot test. **Four venues
+was deliberately left alone at 8.4pt**, because four is now the everyday
+voucher and it has to stay easy to read across a counter.
+
+**The code ladder was not touched, and there is something left on the table
+there.** At five venues the code box is now 16.7mm, slightly bigger than the
+16.6mm box that carries the code at 22pt at four venues, yet the ladder still
+drops it to 18pt. Raising it is very likely safe, but the measurements above are
+Chromium's and the code box printing through the small print is exactly what
+went wrong in August 2026, so it wants `check_pdf_engine.py` run on the server
+before anyone changes it.
 
 **A fourth vendor is what broke this in August 2026.** The code box had a 13mm
 floor, which is not protection when the thing inside it cannot shrink: the box
