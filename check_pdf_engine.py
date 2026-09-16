@@ -131,6 +131,13 @@ def main() -> int:
                          "truncated rather than run off the voucher", more[:4]),
     ]
 
+    # A fourth sheet: the write-in pad's vouchers. They print ruled lines where
+    # the value, the expiry and the code would be, and a rule is a box with a
+    # size like anything else, so it can run into what is under it. Drawn as a
+    # plain sheet rather than as the pad so that check_layout below, which
+    # expects six vouchers to a page, can measure it.
+    blank = core.blank_vouchers(6, len(venues))
+
     # Importing the Flask app only for its template rendering.
     import app as generator
     with generator.app.test_request_context():
@@ -138,10 +145,16 @@ def main() -> int:
         stress_html = generator.render_sheet(stress, config, "Awkward codes")
         crowded_html = generator.render_sheet(crowded, config, "Crowded vouchers")
         vendor_html = generator.render_vendor_sheet(config)
+        blank_html = generator.render_sheet(blank, config, "Write-in pad")
+        # And the pad as it is actually served, cover page and all, which is the
+        # only thing here that puts a page of prose in front of the sheets.
+        pad_html = generator.render_blank_pad(
+            core.blank_vouchers(12, len(venues)), config)
 
     OUT.mkdir(parents=True, exist_ok=True)
     jobs = [("sheet", sheet_html), ("stress", stress_html),
-            ("crowded", crowded_html), ("vendor", vendor_html)]
+            ("crowded", crowded_html), ("vendor", vendor_html),
+            ("blank", blank_html), ("pad", pad_html)]
 
     with core.PdfWriter() as writer:
         print()
@@ -160,7 +173,7 @@ def main() -> int:
             print("  The engine reported nothing it could not draw.")
 
     problems: list[str] = []
-    for name in ("sheet", "stress", "crowded"):
+    for name in ("sheet", "stress", "crowded", "blank"):
         problems += check_layout(OUT / f"{name}.pdf", config, name)
 
     print()
@@ -181,7 +194,9 @@ def main() -> int:
     print("  the voucher code large and centred in its red panel, and nothing")
     print("  overlapping or clipped. Then open vendor.pdf and check it is one")
     print("  page, with the QR square solid black and the fallback address")
-    print("  wrapped inside its border.")
+    print("  wrapped inside its border. Then open pad.pdf and check the cover")
+    print("  page is one page, and that each voucher after it has a line long")
+    print("  enough to write a value, a date and a code on.")
     print()
     return 1 if problems else 0
 

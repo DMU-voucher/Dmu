@@ -305,6 +305,49 @@ stopped at 13mm holding 14.4mm of code, and the difference printed straight
 through the small print above. The floor is gone and the code steps down
 instead.
 
+## The write-in pad, for when this does not work
+
+There is a **Blank vouchers to write in** link at the foot of every page, and a
+line about it just above the button that makes real vouchers. Both download the
+same thing: a PDF of 100 vouchers with the value, the expiry date and the
+voucher code left as ruled lines, six to a page, behind one cover page of
+instructions.
+
+**Print it now and keep the paper.** This is the whole point and it is easy to
+miss: the pad is produced by this app, so it cannot be produced once this app
+has stopped. A pad that was never printed is worth exactly what no pad is worth.
+It belongs in a drawer, not in a downloads folder.
+
+Everything that does not change between batches is printed on it: the DMU
+lockup, the title, the venue list, the red restriction line, the instruction to
+hand it over, and the small print. Those are the parts that make it a voucher
+rather than a slip of paper, and the parts nobody should be writing out by hand
+under pressure. What is left blank is left blank because a pad printed months
+early cannot know it: no batch's value, no expiry, no ID.
+
+Three consequences worth knowing before they are discovered on the day:
+
+- **A handwritten run leaves no batch summary.** The generator normally writes a
+  file listing every code and its value, and that file is what
+  [Reconciling](#reconciling) depends on. Made by hand, the only record is the
+  one somebody writes, so the cover page tells the office to keep a list of the
+  codes used and file it where the batch folder would have gone.
+- **A handwritten value can be altered in a way a printed one cannot.** That is
+  the price of a pad that works for any batch rather than one. The cover page
+  says to store it like chequebook stock.
+- **The venue list printed on it is the list as it stood when it was printed.**
+  Add or rename a vendor and the pad in the drawer is out of date, in exactly
+  the way the vendor sheet's picture is. Print a fresh one.
+
+`?count=` on the link changes how many, between 1 and 600: a mistyped or missing
+number gives 100 rather than an error, because a fallback that refuses to print
+over a URL is not one. Nothing is recorded and no codes are issued, so it can be
+fetched as often as you like and two people fetching it get the same paper.
+
+`check_pdf_engine.py` draws the pad along with everything else, and measures its
+vouchers the same way, so a change that made a ruled line collide with what is
+under it fails the check rather than reaching paper.
+
 ## Reconciling
 
 The batch summaries say what went out: one per request, in its folder, listing
@@ -479,6 +522,9 @@ check_pdf_engine.py     renders the artwork and measures it. Run it on the serve
 check_runs.py           makes a whole run and checks it came out. Run it after
                         changing anything about how a run is drawn
 make_sample_thumbnail.py  remakes the vendor sheet's example picture
+templates/
+  _voucher.html         the one definition of the artwork, real and write-in
+  blank_pad.html        the write-in pad: cover page, then sheets of vouchers
 static/
   voucher.css           how a voucher looks, screen and print alike
   sample-voucher.png    the example picture on the vendor sheet

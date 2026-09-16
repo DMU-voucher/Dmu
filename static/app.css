@@ -276,6 +276,24 @@ a:focus-visible {
 /* The working overlay. Covers the page while the PDFs are drawn, which is one
    long request with nothing to look at otherwise, and takes the button out of
    reach: a second click issues a second batch of real voucher numbers. */
+/* The write-in pad's line, above the button that makes real vouchers. Set
+   apart rather than styled as a warning: nothing is wrong when it is read, and
+   the day it matters nobody will be looking at this page at all. */
+.fallback {
+  margin: 0 0 14px 36px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--fd-orange, #f07f1a);
+  background: #fbfbfb;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.fallback .sub {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
 .working {
   position: fixed;
   inset: 0;

@@ -1,0 +1,96 @@
+<!doctype html>
+{# The write-in pad: one page saying how to use it, then sheets of vouchers with
+   ruled lines where the value, the expiry and the code would be.
+
+   This is the one thing in here that has to make sense with the app switched
+   off, because that is the only time it gets used. So the cover page carries
+   the instructions rather than the README: whoever opens the drawer will have
+   this paper and nothing else. #}
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body>
+{% from "_voucher.html" import voucher %}
+
+<div class="vendor-page pad-cover">
+
+  <h1>Blank vouchers, for when the generator is not available</h1>
+  <p class="lede">
+    These are ordinary DMU Food &amp; Drink vouchers with the parts that change
+    between batches left as ruled lines. They are here so a print run is still
+    possible when the voucher generator, or the computer it runs on, is not.
+  </p>
+
+  <h2>Print these now, not on the day</h2>
+  <p>
+    The generator is what produced this pad, so it cannot produce one once it
+    has stopped working. Print it while everything is working and keep the paper
+    somewhere findable. A pad in a drawer is the only version of this that is
+    any use.
+  </p>
+
+  <h2>Filling one in</h2>
+  <p>Three things are written by hand on each voucher:</p>
+  <ul class="plain">
+    <li><strong>Value.</strong> The amount from the approved request, in the box
+      beside the pound sign.</li>
+    <li><strong>Valid until.</strong> The expiry date from the request. The
+      vendor sheet tells vendors to refuse an expired voucher, so a voucher with
+      this left empty is one nobody can safely accept.</li>
+    <li><strong>Voucher code.</strong> The request's ID from the approval
+      export, then the ticket number, exactly as the generator would print it.
+      Request 12 issuing 40 vouchers is <span class="mono">12-01</span> through
+      <span class="mono">12-40</span>. Every voucher gets its own.</li>
+  </ul>
+
+  <h2>Write down what you issue</h2>
+  <p>
+    A run made from this pad produces <strong>no batch summary</strong>. The
+    generator normally writes a file listing every code and its value, and that
+    file is what reconciling against the vendor's returns depends on. Made by
+    hand, the only record is the one somebody makes, so keep a list of the codes
+    used, the value, and which request they were for, and file it where the
+    batch folder would have gone.
+  </p>
+
+  <h2>Two things to be careful about</h2>
+  <ul class="plain">
+    <li><strong>A written value can be altered in a way a printed one cannot.</strong>
+      Store this pad like chequebook stock rather than like stationery, and
+      write the value clearly enough that a changed one would show.</li>
+    <li><strong>No code may be used twice.</strong> The generator cannot repeat
+      one; a person can. Cross each code off the list as it is written.</li>
+  </ul>
+
+  <h2>Where these can be spent</h2>
+  <p>
+    The venue list is printed on the vouchers already and is the settled list as
+    it stood when this pad was printed:
+    {{ cfg.venues[:-1]|join(', ') }}{% if cfg.venues|length > 1 %} and {% endif %}{{ cfg.venues[-1] }}.
+    If that list has changed since, this pad is out of date and a fresh one
+    should be printed.
+  </p>
+
+  <p class="pad-foot">
+    {{ count }} vouchers follow, {{ per_page }} to a page.
+    Cut along the dashed lines.
+  </p>
+
+</div>
+
+{% for page in pages %}
+  <div class="sheet">
+    {% for v in page %}
+      <div class="cell">{{ voucher(v, cfg, logos) }}</div>
+    {% endfor %}
+    {% for _ in range(per_page - page|length) %}
+      <div class="cell empty"></div>
+    {% endfor %}
+  </div>
+{% endfor %}
+
+</body>
+</html>

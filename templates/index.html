@@ -234,6 +234,18 @@
             </label>
           </div>
 
+          <p class="fallback">
+            <strong>Before you press it:</strong> there is a
+            <a href="{{ url_for('blank_vouchers_pdf') }}">pad of 100 blank
+            vouchers</a> to print and keep, for a day this app or this computer
+            is not available. The value, the expiry and the code are written in
+            by hand; everything else is printed.
+            <span class="sub">Print it while things are working. It is made by
+              this app, so it cannot be produced once this app has stopped.
+              (<a href="{{ url_for('preview_blank_pad') }}" target="_blank">look
+              at it first</a>)</span>
+          </p>
+
           <div class="actions">
             <button class="primary" type="submit" id="make-btn">Make the vouchers</button>
             <span class="tiny">Takes a few seconds. Leave this page open.</span>
@@ -249,6 +261,8 @@
        finished batches in their folders are the record. #}
     <a href="{{ url_for('vendor_instructions') }}">Vendor instruction sheet</a>
     (<a href="{{ url_for('preview_vendor') }}" target="_blank">look at it first</a>)
+    &middot; <a href="{{ url_for('blank_vouchers_pdf') }}">Blank vouchers to write in</a>
+    (<a href="{{ url_for('preview_blank_pad') }}" target="_blank">look at it first</a>)
     &middot; Redeemable at
     {{- ' ' }}{{ cfg.venues[:-1]|join(', ') }}
     {%- if cfg.venues|length > 1 %} and {% endif -%}

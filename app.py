@@ -166,6 +166,24 @@ def render_vendor_sheet(config: dict) -> str:
                            **render_context(config))
 
 
+def render_blank_pad(vouchers_: list[core.Voucher], config: dict) -> str:
+    """The write-in pad: a cover page of instructions, then sheets of vouchers.
+
+    The cover carries the instructions rather than leaving them to the README,
+    because the pad is used on the day the app is not working and the paper is
+    all anybody will have.
+    """
+    per_page = int(config.get("vouchers_per_page") or 6)
+    return render_template(
+        "blank_pad.html",
+        pages=core.chunk(vouchers_, per_page),
+        per_page=per_page,
+        count=len(vouchers_),
+        title="Blank DMU Food & Drink vouchers",
+        **render_context(config),
+    )
+
+
 def render_thumbnail_page(config: dict) -> str:
     """The specimen voucher alone, for make_sample_thumbnail.py to photograph."""
     return render_template("thumbnail.html",
@@ -407,6 +425,61 @@ def vendor_instructions():
             "the bottom of this page.")
     return send_file(buf, mimetype="application/pdf", as_attachment=True,
                      download_name="Vendor instructions.pdf")
+
+
+def _pad_count() -> int:
+    """How many blank vouchers were asked for, out of the query string.
+
+    Anything unreadable comes back as the default rather than as an error. The
+    pad is a fallback, and a fallback that refuses to print because somebody
+    mistyped a number in a URL is not one.
+    """
+    try:
+        return int(request.args.get("count") or core.BLANK_PAD_DEFAULT)
+    except (TypeError, ValueError):
+        return core.BLANK_PAD_DEFAULT
+
+
+@app.get("/preview/blank-pad")
+def preview_blank_pad():
+    config = core.load_config()
+    return render_blank_pad(
+        core.blank_vouchers(_pad_count(), len(config.get("venues") or [])), config)
+
+
+@app.get("/blank-vouchers.pdf")
+def blank_vouchers_pdf():
+    """The pad of write-in vouchers, for the day this app is not available.
+
+    There is an obvious circularity here: the thing that draws the fallback is
+    the thing the fallback stands in for. That is not a flaw to be engineered
+    out, it is the instruction on the cover page, which says to print the pad
+    now and keep the paper. A downloaded PDF that is never printed is worth
+    exactly as much as no pad at all.
+
+    Nothing is recorded and no numbers are issued: a blank voucher has no code
+    to reserve. So this can be fetched as often as anybody likes, and two people
+    fetching it get the same paper.
+    """
+    config = core.load_config()
+    vs = core.blank_vouchers(_pad_count(), len(config.get("venues") or []))
+    try:
+        with core.PdfWriter() as writer:
+            buf = io.BytesIO()
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "Blank vouchers.pdf"
+                writer.write(render_blank_pad(vs, config), path)
+                buf.write(path.read_bytes())
+        buf.seek(0)
+    except Exception:
+        traceback.print_exc()
+        return _index_with_error(
+            "The blank vouchers could not be drawn. The details are in the "
+            "window running the app. Nothing else is affected: this is the "
+            "write-in pad, and it can also be printed from the preview link "
+            "at the bottom of this page.")
+    return send_file(buf, mimetype="application/pdf", as_attachment=True,
+                     download_name="Blank vouchers to write in (%d).pdf" % len(vs))
 
 
 # --------------------------------------------------------------------------

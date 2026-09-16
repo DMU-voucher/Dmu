@@ -275,6 +275,53 @@ html, body {
 .squeeze-6 .v-value { font-size: 19pt; }
 .squeeze-6 .v-action { font-size: 6.6pt; padding: 0.8mm 1.8mm; }
 
+/* The write-in pad. Every part of a voucher that changes between batches is a
+   ruled line here rather than a printed value, because the pad is printed and
+   put in a drawer before anybody knows what the batch will be.
+
+   The rules are sized to be written on with a biro rather than to be tidy: the
+   value line takes "6.00" at the size somebody actually writes, and the code
+   line takes the longest code the app can issue, which is nineteen characters.
+   A line too short to hold what goes on it is worse than no line at all,
+   because it invites writing over the border of the box. */
+
+/* The pad's cover page. It reuses the vendor sheet's page furniture, but every
+   rule here is scoped to .pad-cover so that sheet cannot be restyled by
+   anything the pad needs. Unlike the vendor sheet it is followed by pages of
+   vouchers rather than ending the document, so it has to break after itself. */
+
+.pad-cover {
+  page-break-after: always;
+  break-after: page;
+}
+
+.pad-cover p {
+  font-size: 9pt;
+  line-height: 1.4;
+  margin: 0 0 2.5mm;
+}
+
+.pad-cover ul.plain {
+  margin-bottom: 2.5mm;
+}
+
+.pad-cover .pad-foot {
+  margin-top: auto;
+  padding-top: 2.5mm;
+  border-top: 0.3mm solid var(--rule);
+  font-size: 8.5pt;
+}
+
+.write-in {
+  display: inline-block;
+  border-bottom: 0.3mm solid var(--ink);
+  vertical-align: baseline;
+}
+
+.wi-value { width: 23mm; height: 6mm; }
+.wi-date { width: 25mm; height: 2.8mm; }
+.wi-code { width: 56mm; height: 8mm; }
+
 .v-where {
   flex: 1 1 auto;
   min-width: 0;

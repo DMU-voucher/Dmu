@@ -639,6 +639,10 @@ class Voucher:
     # because the specimen leaves `venues` empty and takes the configured list,
     # and the layout has to know the count either way.
     venue_count: int = 0
+    # A voucher from the write-in pad, which prints ruled lines where the value,
+    # the expiry and the code would go. See blank_vouchers below for why the
+    # pad carries none of them.
+    blank: bool = False
 
     @property
     def squeeze_class(self) -> str:
@@ -734,6 +738,65 @@ def specimen_voucher(venue_count: int = 0) -> "Voucher":
         venues=[],
         venue_count=venue_count,
     )
+
+
+# --------------------------------------------------------------------------
+# The write-in pad
+# --------------------------------------------------------------------------
+
+# Six to a page, so a round number of pages is a multiple of six. 100 is what
+# was asked for and 100 is what this makes: the last page carries four blank
+# cells, which cost nothing and are easier to explain than a pad of 102.
+BLANK_PAD_DEFAULT = 100
+
+# A pad is printed and put in a drawer, so a request for one is not a request
+# the office is waiting on. The ceiling is there because the count arrives in a
+# URL and 100000 vouchers is 16667 pages, which is a way to hang the server
+# rather than a way to get a pad.
+BLANK_PAD_MAX = 600
+
+
+def blank_vouchers(count: int, venue_count: int) -> list["Voucher"]:
+    """A pad of vouchers with the batch-specific parts left as ruled lines.
+
+    This exists for the day the generator does not work. That is the whole
+    reason it carries no value, no expiry and no code: a pad is only any use if
+    it was printed *before* the thing it stands in for broke, and at that point
+    nobody knows what the batch will be worth, when it will expire or what its
+    ID will be. Printing any of them would tie the pad to one batch and make it
+    the wrong paper for the next.
+
+    What it does print is everything that does not change: the DMU lockup, the
+    title, the venue list, the red restriction line, the instruction to hand it
+    over, and the small print. Those are the parts that make it a voucher rather
+    than a slip of paper, and they are the parts nobody should be writing out by
+    hand under pressure.
+
+    The venue list is the settled one, so the pad squeezes exactly as a real
+    voucher does at that count and a filled-in one is not visibly a different
+    shape to a printed one.
+
+    A handwritten value is alterable in a way a printed one is not, which is the
+    price of a pad that works for any batch. It is why the cover page tells the
+    office to store it like chequebook stock and to record what it issues: a
+    handwritten run produces no batch summary, so the only record is the one
+    somebody makes.
+    """
+    return [
+        Voucher(
+            dmu_code="",
+            value_display="",
+            event_name="",
+            valid_until="",
+            event_date="",
+            # Empty, so the artwork falls back to the configured list the same
+            # way the specimen does.
+            venues=[],
+            venue_count=venue_count,
+            blank=True,
+        )
+        for _ in range(max(1, min(count, BLANK_PAD_MAX)))
+    ]
 
 
 # The logo files the artwork can carry, in the order they are looked for. Named
