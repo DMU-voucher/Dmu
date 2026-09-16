@@ -48,6 +48,12 @@ assets/*.svg
 # The loose copy the generator refreshes each run.
 /Vendor instructions.pdf
 
+# A built copy of the write-in pad, kept here so it is to hand on the day the
+# app is not. Not tracked: writein.py is what the pad is, and a committed .docx
+# would go stale the first time the file or the venue list changed with nothing
+# to catch it. Whoever needs one downloads it or builds it again.
+/Blank vouchers to write in*.docx
+
 __pycache__/
 *.py[cod]
 .DS_Store

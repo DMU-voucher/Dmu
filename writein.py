@@ -118,6 +118,26 @@ BLANK_VENUE_LINES = 1
 # list, which is the only guide there is to what somebody might write.
 BLANK_VENUE_RULE_MM = 62
 
+# A second spare line, counted in the spacer below and drawn nowhere.
+#
+# The drawn rule takes one venue's worth of height, so the pad tolerated a fifth
+# venue and no more: a line typed under the rule was the sixth, and pushed the
+# code panel 4.2mm past the floor, where an exact row height clips it away in
+# silence.
+#
+# Room rather than a second rule, deliberately. Two empty rules print on every
+# one of the 100 vouchers whether anybody uses them or not, and a vendor reading
+# two blanks reads a voucher somebody did not finish filling in. One blank is a
+# line left unused; two look like a mistake.
+#
+# The cost is at the other end. The spacer is worked out when the file is built
+# and does not recompute when somebody types, so counting a line nobody can see
+# shrinks it to its 3pt floor and the code panel sits about 3.5mm higher than it
+# otherwise would, over a blank strip. Typing the sixth venue spends that strip
+# exactly and puts the panel back on the bottom padding. Measured, not assumed:
+# the panel is whole and inside the cell at five venues and at six.
+SPARE_VENUE_ROOM_LINES = 1
+
 
 # --------------------------------------------------------------------------
 # The XML that python-docx has no API for
@@ -299,7 +319,7 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
     # small print and the bottom padding. Clamped at nothing to give away, which
     # is what a list longer than the artwork's own six-venue ceiling leaves.
     content_end = CONTENT_END_MM + CONTENT_PER_VENUE_MM * (
-        len(venues) - 3 + BLANK_VENUE_LINES)
+        len(venues) - 3 + BLANK_VENUE_LINES + SPARE_VENUE_ROOM_LINES)
     room = (CELL_H.mm - CELL_PAD.mm) - content_end
     label = _para(cell, space_before=max(3.0, room * 72 / 25.4), space_after=0,
                   align=WD_ALIGN_PARAGRAPH.CENTER)

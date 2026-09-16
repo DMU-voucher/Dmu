@@ -263,7 +263,11 @@
        finished batches in their folders are the record. #}
     <a href="{{ url_for('vendor_instructions') }}">Vendor instruction sheet</a>
     (<a href="{{ url_for('preview_vendor') }}" target="_blank">look at it first</a>)
+    {# The pad holds one ruled blank and room under it for one line more. The
+       room is real but invisible until somebody presses Enter, so it is said
+       here: a fallback nobody knows the shape of is half a fallback. #}
     &middot; <a href="{{ url_for('blank_vouchers_docx') }}">Blank vouchers to write in (Word)</a>
+    (room for two more venues)
     &middot; Redeemable at
     {{- ' ' }}{{ cfg.venues[:-1]|join(', ') }}
     {%- if cfg.venues|length > 1 %} and {% endif -%}
