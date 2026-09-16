@@ -17,3 +17,8 @@ segno
 # single request.
 pymupdf
 weasyprint
+
+# The write-in pad is a Word file, and Word reads neither the templates nor the
+# stylesheet, so it is built directly. Pure Python and small, unlike the other
+# way of producing an Office file.
+python-docx

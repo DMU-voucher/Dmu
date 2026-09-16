@@ -236,14 +236,16 @@
 
           <p class="fallback">
             <strong>Before you press it:</strong> there is a
-            <a href="{{ url_for('blank_vouchers_pdf') }}">pad of 100 blank
-            vouchers</a> to print and keep, for a day this app or this computer
-            is not available. The value, the expiry and the code are written in
-            by hand; everything else is printed.
-            <span class="sub">Print it while things are working. It is made by
-              this app, so it cannot be produced once this app has stopped.
-              (<a href="{{ url_for('preview_blank_pad') }}" target="_blank">look
-              at it first</a>)</span>
+            <a href="{{ url_for('blank_vouchers_docx') }}">Word file of 100 blank
+            vouchers</a> to save and keep, for a day this app or this computer is
+            not available. Everything is printed on them except the value, the
+            expiry and the voucher code, which are typed in.
+            <span class="sub">Save it now, while things are working: it is made
+              by this app, so it cannot be produced once this app has stopped.
+              In Word, Replace All turns every <code>[value]</code> and
+              <code>[date]</code> into the right one in a single go; only the
+              code is per voucher. A run made from it leaves no batch summary,
+              so write down the codes you use.</span>
           </p>
 
           <div class="actions">
@@ -261,8 +263,7 @@
        finished batches in their folders are the record. #}
     <a href="{{ url_for('vendor_instructions') }}">Vendor instruction sheet</a>
     (<a href="{{ url_for('preview_vendor') }}" target="_blank">look at it first</a>)
-    &middot; <a href="{{ url_for('blank_vouchers_pdf') }}">Blank vouchers to write in</a>
-    (<a href="{{ url_for('preview_blank_pad') }}" target="_blank">look at it first</a>)
+    &middot; <a href="{{ url_for('blank_vouchers_docx') }}">Blank vouchers to write in (Word)</a>
     &middot; Redeemable at
     {{- ' ' }}{{ cfg.venues[:-1]|join(', ') }}
     {%- if cfg.venues|length > 1 %} and {% endif -%}

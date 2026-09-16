@@ -20,12 +20,7 @@
   </div>
 
   <div class="v-value-row">
-    {# The pad rules a line instead of printing a value. It is printed before
-       anybody knows what the batch is worth, so there is nothing to print. #}
-    <div class="v-value">
-      {%- if v.blank %}&pound;<span class="write-in wi-value"></span>
-      {%- else %}{{ v.value_display }}{% endif -%}
-    </div>
+    <div class="v-value">{{ v.value_display }}</div>
     <div class="v-title">{{ cfg.voucher_title }}</div>
   </div>
 
@@ -45,9 +40,7 @@
 
   <div class="v-foot">
     <div class="v-dates">
-      {% if v.blank %}
-        <div>{{ cfg.valid_until_label }} <span class="write-in wi-date"></span></div>
-      {% elif v.valid_until %}
+      {% if v.valid_until %}
         <div>{{ cfg.valid_until_label }} <strong>{{ v.valid_until }}</strong></div>
       {% else %}
         <div></div>
@@ -67,10 +60,7 @@
        can carry. #}
     <div class="v-ref-strip">
       <span class="v-ref-label">{{ cfg.reference_label }}</span>
-      <span class="v-ref-number {{ v.code_size_class }}">
-        {%- if v.blank %}<span class="write-in wi-code"></span>
-        {%- else %}{{ v.dmu_code }}{% endif -%}
-      </span>
+      <span class="v-ref-number {{ v.code_size_class }}">{{ v.dmu_code }}</span>
     </div>
 
     {# Truncated here rather than with text-overflow, which WeasyPrint does not

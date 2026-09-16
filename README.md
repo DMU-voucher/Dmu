@@ -307,46 +307,82 @@ instead.
 
 ## The write-in pad, for when this does not work
 
-There is a **Blank vouchers to write in** link at the foot of every page, and a
-line about it just above the button that makes real vouchers. Both download the
-same thing: a PDF of 100 vouchers with the value, the expiry date and the
-voucher code left as ruled lines, six to a page, behind one cover page of
-instructions.
+There is a **Blank vouchers to write in (Word)** link at the foot of every page,
+and a line about it just above the button that makes real vouchers. Both
+download the same thing: a Word file of 100 vouchers, six to an A4 page, with
+the value, the expiry date and the voucher code left as `[value]`, `[date]` and
+`[code]` to be typed over.
 
-**Print it now and keep the paper.** This is the whole point and it is easy to
-miss: the pad is produced by this app, so it cannot be produced once this app
-has stopped. A pad that was never printed is worth exactly what no pad is worth.
-It belongs in a drawer, not in a downloads folder.
+**Save it now and keep it.** This is the whole point and it is easy to miss: the
+pad is produced by this app, so it cannot be produced once this app has stopped.
+A pad nobody saved is worth exactly what no pad is worth.
+
+Word rather than PDF so it can be typed into. A fallback that can only be
+completed by hand is a worse fallback than one that can be completed either way,
+and 100 vouchers is a great deal of handwriting. The placeholders are square
+brackets rather than ruled lines for the same reason: they can be double-clicked
+and typed over, and an unfilled `[code]` is obviously an error, where an unfilled
+ruled line just looks like a voucher somebody meant to write on.
+
+**Replace All does most of the work.** A batch shares one value and one expiry
+across all of its vouchers, so in Word, replacing `[value]` with `£6.00` and
+`[date]` with the expiry fills in every voucher in the file at once. Only the
+code is genuinely per voucher and has to be typed 40 or 100 times, which is the
+same thing the generator would have done.
 
 Everything that does not change between batches is printed on it: the DMU
 lockup, the title, the venue list, the red restriction line, the instruction to
-hand it over, and the small print. Those are the parts that make it a voucher
-rather than a slip of paper, and the parts nobody should be writing out by hand
-under pressure. What is left blank is left blank because a pad printed months
-early cannot know it: no batch's value, no expiry, no ID.
+hand it over, and the small print. What is left blank is left blank because a
+pad saved months early cannot know it: no batch's value, no expiry, no ID.
 
 Three consequences worth knowing before they are discovered on the day:
 
 - **A handwritten run leaves no batch summary.** The generator normally writes a
   file listing every code and its value, and that file is what
-  [Reconciling](#reconciling) depends on. Made by hand, the only record is the
-  one somebody writes, so the cover page tells the office to keep a list of the
-  codes used and file it where the batch folder would have gone.
-- **A handwritten value can be altered in a way a printed one cannot.** That is
-  the price of a pad that works for any batch rather than one. The cover page
-  says to store it like chequebook stock.
-- **The venue list printed on it is the list as it stood when it was printed.**
-  Add or rename a vendor and the pad in the drawer is out of date, in exactly
-  the way the vendor sheet's picture is. Print a fresh one.
+  [Reconciling](#reconciling) depends on. Made from the pad, the only record is
+  the one somebody keeps, so keep a list of the codes used and file it where the
+  batch folder would have gone.
+- **A typed or written value can be altered in a way a printed one cannot.**
+  That is the price of a pad that works for any batch rather than one.
+- **The venue list on it is the list as it stood when it was saved.** Add or
+  rename a vendor and the saved pad is out of date, in the same way the vendor
+  sheet's picture is. Download a fresh one.
 
-`?count=` on the link changes how many, between 1 and 600: a mistyped or missing
-number gives 100 rather than an error, because a fallback that refuses to print
+`?count=` on the link changes how many, between 1 and 600. A mistyped or missing
+number gives 100 rather than an error, because a fallback that refuses to build
 over a URL is not one. Nothing is recorded and no codes are issued, so it can be
-fetched as often as you like and two people fetching it get the same paper.
+fetched as often as you like and two people fetching it get the same file.
 
-`check_pdf_engine.py` draws the pad along with everything else, and measures its
-vouchers the same way, so a change that made a ruled line collide with what is
-under it fails the check rather than reaching paper.
+### Why it is drawn twice
+
+`writein.py` builds the pad in python-docx. Everywhere else there is exactly one
+definition of what a voucher looks like, in `templates/_voucher.html` and
+`static/voucher.css`, shared by the screen preview and both PDF engines. Word
+reads neither, so the pad's layout is built again and the two have to be kept in
+step by hand. That is the cost of the format and there is no way round it.
+
+What is not duplicated is the wording. Every string on a write-in voucher comes
+out of `config.json` exactly as the artwork's does, so changing a venue or a line
+of small print changes the pad too without anyone editing `writein.py`. The
+duplication is the shape, not the content.
+
+Two numbers in that file are measured rather than chosen, both by converting the
+result with Word and reading it back off the PDF:
+
+- **Word lays a table row out about 4.2mm taller than the height it is given.**
+  So the rows ask for 94mm and occupy 98.2mm, and three of them plus the
+  paragraph Word insists on after a table come in just under A4. Asking for the
+  artwork's own 99mm put two vouchers on a page and made a pad of 100 run to 34
+  pages.
+- **Word cannot pin a paragraph to the bottom of a cell.** The printed artwork
+  pins the code panel to the foot of the voucher with a flex layout; here the
+  gap above it is padded out instead, from a measurement of how tall the content
+  runs at each venue count. Without it the panel floated mid-voucher with a
+  blank third underneath.
+
+`check_pdf_engine.py` does not cover the pad: it is not drawn by either PDF
+engine, so neither has anything to say about it. Changing `writein.py` means
+opening the result in Word and looking at it.
 
 ## Reconciling
 
@@ -522,9 +558,9 @@ check_pdf_engine.py     renders the artwork and measures it. Run it on the serve
 check_runs.py           makes a whole run and checks it came out. Run it after
                         changing anything about how a run is drawn
 make_sample_thumbnail.py  remakes the vendor sheet's example picture
+writein.py              the write-in pad, built as a Word file
 templates/
-  _voucher.html         the one definition of the artwork, real and write-in
-  blank_pad.html        the write-in pad: cover page, then sheets of vouchers
+  _voucher.html         the one definition of the printed artwork
 static/
   voucher.css           how a voucher looks, screen and print alike
   sample-voucher.png    the example picture on the vendor sheet
