@@ -96,47 +96,38 @@ CODE_MARK = "[code]"
 CONTENT_END_MM = 77.0
 CONTENT_PER_VENUE_MM = 4.2
 
-# A spare venue line, printed as an empty rule at the end of the list.
+# Spare venue lines: height held back at the foot of the voucher, and nothing
+# drawn to show for it.
 #
 # The pad is a Word file so that it can be edited, and adding a venue is one of
-# the things people edit. Room alone was not enough: made invisible, nobody
-# could find it. So the line is drawn.
+# the things people edit. The list has to be able to grow, and the cell it grows
+# inside cannot: a row set to an exact height does not grow and does not
+# complain, it just stops drawing, so anything pushed past the floor goes
+# quietly missing until it reaches paper.
 #
-# It is a rule rather than a "[vendor]" placeholder on purpose. Left unused, a
-# rule prints as a blank somebody chose not to fill in, where a placeholder
-# prints the word "[vendor]" on the voucher as a place it can be spent, on all
-# 100 of them unless every one is cleared by hand.
+# Two attempts sit behind this one. Holding the room and drawing nothing was
+# invisible, and room nobody can find is worth nothing. Drawing an empty ruled
+# line was visible, and printed a bullet with a blank beside it on all 100
+# vouchers, which reads as a voucher somebody did not finish filling in.
 #
-# The line has to be counted in the spacer below, because it takes the height of
-# a venue whether anything is written on it or not. Without that the code panel
-# sat exactly on the bottom padding and an added line pushed it 2.6mm past the
-# floor: a row set to an exact height does not grow and does not complain, it
-# just stops drawing, so the panel went quietly missing until it reached paper.
-BLANK_VENUE_LINES = 1
-
-# How far the rule runs. Long enough for the longest name already on the settled
-# list, which is the only guide there is to what somebody might write.
-BLANK_VENUE_RULE_MM = 62
-
-# A second spare line, counted in the spacer below and drawn nowhere.
+# So: room again, but two lines of it, and the list ends on a real venue. Adding
+# one is now Enter at the end of the last line, which inherits that line's
+# bullet and its 8.5pt bold black rather than the 6pt orange a rule's own bullet
+# used to hand over. The room is said in words beside the download link instead
+# of drawn on the artwork, which is the only place it can be said without
+# printing it a hundred times.
 #
-# The drawn rule takes one venue's worth of height, so the pad tolerated a fifth
-# venue and no more: a line typed under the rule was the sixth, and pushed the
-# code panel 4.2mm past the floor, where an exact row height clips it away in
-# silence.
+# The cost is at the other end, and it is real. The spacer is worked out when
+# the file is built and does not recompute when somebody types, so two lines
+# nobody can see shrink it to its 3pt floor: the code panel sits 13.3mm above
+# the cut rather than 6.7mm, over white. Each venue typed in spends 4.2mm of
+# that and walks the panel back down. Measured by converting with Word, not
+# worked out on paper: the panel is whole and inside the cell at four venues,
+# five and six, and a seventh is 3.2mm past the floor.
 #
-# Room rather than a second rule, deliberately. Two empty rules print on every
-# one of the 100 vouchers whether anybody uses them or not, and a vendor reading
-# two blanks reads a voucher somebody did not finish filling in. One blank is a
-# line left unused; two look like a mistake.
-#
-# The cost is at the other end. The spacer is worked out when the file is built
-# and does not recompute when somebody types, so counting a line nobody can see
-# shrinks it to its 3pt floor and the code panel sits about 3.5mm higher than it
-# otherwise would, over a blank strip. Typing the sixth venue spends that strip
-# exactly and puts the panel back on the bottom padding. Measured, not assumed:
-# the panel is whole and inside the cell at five venues and at six.
-SPARE_VENUE_ROOM_LINES = 1
+# A seventh belongs in config.json, which rebuilds the pad around it and puts it
+# on the real vouchers too, which typing into Word does not.
+SPARE_VENUE_ROOM_LINES = 2
 
 
 # --------------------------------------------------------------------------
@@ -272,25 +263,6 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
         _run(line, "●  ", size=6, color=FD_ORANGE)
         _run(line, name, size=8.5, bold=True, color=INK)
 
-    # The spare line. The rule is an underlined tab rather than a row of
-    # underscores, so that typing on it shortens the tab and the rule ends in
-    # the same place however long the name is, instead of the name pushing a
-    # fixed row of underscores off to the right.
-    for _ in range(BLANK_VENUE_LINES):
-        line = _para(cell, space_after=0.5, line=1.0)
-        line.paragraph_format.left_indent = Mm(1)
-        line.paragraph_format.tab_stops.add_tab_stop(
-            Mm(BLANK_VENUE_RULE_MM), WD_TAB_ALIGNMENT.LEFT)
-        _run(line, "●", size=6, color=FD_ORANGE)
-        # A space in the venues' own formatting, between the bullet and the
-        # rule. Word gives typed text the formatting of whatever is to the left
-        # of the cursor, and without this a name typed at the start of the line
-        # came out in the bullet's 6pt orange. Both landing places now give the
-        # same 8.5pt bold black the printed venues use.
-        _run(line, "  ", size=8.5, bold=True, color=INK)
-        rule = _run(line, "	", size=8.5, bold=True, color=INK)
-        rule.underline = True
-
     _run(_para(cell, space_before=1.5, space_after=1),
          config.get("venue_warning") or "", size=7, bold=True, color=DMU_RED)
 
@@ -319,7 +291,7 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
     # small print and the bottom padding. Clamped at nothing to give away, which
     # is what a list longer than the artwork's own six-venue ceiling leaves.
     content_end = CONTENT_END_MM + CONTENT_PER_VENUE_MM * (
-        len(venues) - 3 + BLANK_VENUE_LINES + SPARE_VENUE_ROOM_LINES)
+        len(venues) - 3 + SPARE_VENUE_ROOM_LINES)
     room = (CELL_H.mm - CELL_PAD.mm) - content_end
     label = _para(cell, space_before=max(3.0, room * 72 / 25.4), space_after=0,
                   align=WD_ALIGN_PARAGRAPH.CENTER)
