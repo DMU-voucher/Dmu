@@ -379,13 +379,22 @@ result with Word and reading it back off the PDF:
   which on a page with no margin put the left-hand column half a millimetre off
   the paper and left 7.5mm spare down the right. The whole sheet printed
   visibly skewed. The table indent is set explicitly to stop it.
-- **One venue line is deliberately left spare.** The pad is a Word file so it
-  can be edited, and adding a venue is one of the things people edit. Without
-  the spare line the code panel sits exactly on the bottom padding, so a line
-  typed into the list pushed it 2.6mm past the floor and the row, which is set
-  to an exact height, silently stopped drawing it. The panel went missing with
-  no warning on screen. There is room for a typed fifth venue now; a sixth wants
-  putting in `config.json` instead, which rebuilds the pad around it properly.
+- **There is a spare venue line, and it is drawn.** The pad is a Word file so it
+  can be edited, and adding a venue is one of the things people edit. Room on
+  its own was not enough: made invisible, nobody could find it, so the list ends
+  in an empty rule. It is a rule rather than a `[vendor]` placeholder because a
+  rule left unused prints as a blank somebody chose not to fill in, where a
+  placeholder prints the word "[vendor]" on the voucher as a place it can be
+  spent, on all 100 unless each is cleared. The rule is an underlined tab, so
+  typing on it shortens the tab and the line still ends in the same place. A
+  sixth venue wants putting in `config.json` instead, which rebuilds the pad
+  around it properly.
+
+  The line has to be counted in the spacer below, because it takes a venue's
+  height whether anything is on it or not. Before it was, the code panel sat
+  exactly on the bottom padding and an added line pushed it 2.6mm past the
+  floor: a row set to an exact height does not grow and does not complain, it
+  just stops drawing, so the panel went quietly missing until it reached paper.
 - **Word cannot pin a paragraph to the bottom of a cell.** The printed artwork
   pins the code panel to the foot of the voucher with a flex layout; here the
   gap above it is padded out instead, from a measurement of how tall the content

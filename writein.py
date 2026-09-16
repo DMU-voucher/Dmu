@@ -96,19 +96,27 @@ CODE_MARK = "[code]"
 CONTENT_END_MM = 77.0
 CONTENT_PER_VENUE_MM = 4.2
 
-# One venue line of the cell is deliberately left unused.
+# A spare venue line, printed as an empty rule at the end of the list.
 #
-# The pad is a Word file so it can be edited, and adding a venue to the list is
-# one of the things people edit. Without this the code panel sits exactly on the
-# bottom padding, so a line typed into the list pushes the panel 2.6mm past the
-# floor: measured, by adding a line to a built pad and converting it. A row set
-# to an exact height does not grow and does not complain, it just stops drawing,
-# so the panel goes quietly missing and only shows up on the print.
+# The pad is a Word file so that it can be edited, and adding a venue is one of
+# the things people edit. Room alone was not enough: made invisible, nobody
+# could find it. So the line is drawn.
 #
-# Reserving a line costs a 4.2mm gap above the panel on a pad nobody edits, and
-# buys a typed fifth venue that fits. A sixth needs the venue putting in
-# config.json, which rebuilds the pad around it properly.
-SPARE_VENUE_LINES = 1
+# It is a rule rather than a "[vendor]" placeholder on purpose. Left unused, a
+# rule prints as a blank somebody chose not to fill in, where a placeholder
+# prints the word "[vendor]" on the voucher as a place it can be spent, on all
+# 100 of them unless every one is cleared by hand.
+#
+# The line has to be counted in the spacer below, because it takes the height of
+# a venue whether anything is written on it or not. Without that the code panel
+# sat exactly on the bottom padding and an added line pushed it 2.6mm past the
+# floor: a row set to an exact height does not grow and does not complain, it
+# just stops drawing, so the panel went quietly missing until it reached paper.
+BLANK_VENUE_LINES = 1
+
+# How far the rule runs. Long enough for the longest name already on the settled
+# list, which is the only guide there is to what somebody might write.
+BLANK_VENUE_RULE_MM = 62
 
 
 # --------------------------------------------------------------------------
@@ -244,6 +252,25 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
         _run(line, "●  ", size=6, color=FD_ORANGE)
         _run(line, name, size=8.5, bold=True, color=INK)
 
+    # The spare line. The rule is an underlined tab rather than a row of
+    # underscores, so that typing on it shortens the tab and the rule ends in
+    # the same place however long the name is, instead of the name pushing a
+    # fixed row of underscores off to the right.
+    for _ in range(BLANK_VENUE_LINES):
+        line = _para(cell, space_after=0.5, line=1.0)
+        line.paragraph_format.left_indent = Mm(1)
+        line.paragraph_format.tab_stops.add_tab_stop(
+            Mm(BLANK_VENUE_RULE_MM), WD_TAB_ALIGNMENT.LEFT)
+        _run(line, "●", size=6, color=FD_ORANGE)
+        # A space in the venues' own formatting, between the bullet and the
+        # rule. Word gives typed text the formatting of whatever is to the left
+        # of the cursor, and without this a name typed at the start of the line
+        # came out in the bullet's 6pt orange. Both landing places now give the
+        # same 8.5pt bold black the printed venues use.
+        _run(line, "  ", size=8.5, bold=True, color=INK)
+        rule = _run(line, "	", size=8.5, bold=True, color=INK)
+        rule.underline = True
+
     _run(_para(cell, space_before=1.5, space_after=1),
          config.get("venue_warning") or "", size=7, bold=True, color=DMU_RED)
 
@@ -272,7 +299,7 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
     # small print and the bottom padding. Clamped at nothing to give away, which
     # is what a list longer than the artwork's own six-venue ceiling leaves.
     content_end = CONTENT_END_MM + CONTENT_PER_VENUE_MM * (
-        len(venues) - 3 + SPARE_VENUE_LINES)
+        len(venues) - 3 + BLANK_VENUE_LINES)
     room = (CELL_H.mm - CELL_PAD.mm) - content_end
     label = _para(cell, space_before=max(3.0, room * 72 / 25.4), space_after=0,
                   align=WD_ALIGN_PARAGRAPH.CENTER)
