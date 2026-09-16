@@ -134,6 +134,21 @@ def _cell_margins(cell, pad: Mm) -> None:
     props.append(margins)
 
 
+def _table_indent(table, pad: Mm) -> None:
+    """Put the table's left edge on the left margin, not the cell's text.
+
+    Left alone, Word lines the first cell's *contents* up with the margin, which
+    hangs the table itself out to the left by one cell margin. On a page with no
+    margin at all that puts the left-hand column of vouchers half a millimetre
+    off the paper and leaves 7.5mm spare down the right: measured off the PDF,
+    the whole grid sat 4.5mm to the left and the sheet printed visibly skewed.
+
+    Setting the indent explicitly is what stops that. There is no python-docx
+    API for it.
+    """
+    table._tbl.tblPr.append(_el("w:tblInd", w=int(pad.twips), type="dxa"))
+
+
 def _cut_guides(table) -> None:
     """Dashed lines between the vouchers and nothing around the outside.
 
@@ -308,6 +323,7 @@ def build(config: dict, count: int) -> bytes:
         table = doc.add_table(rows=rows, cols=2)
         table.alignment = WD_TABLE_ALIGNMENT.LEFT
         table.autofit = False
+        _table_indent(table, CELL_PAD)
         _cut_guides(table)
 
         for row in table.rows:

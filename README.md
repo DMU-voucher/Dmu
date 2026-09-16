@@ -374,6 +374,11 @@ result with Word and reading it back off the PDF:
   paragraph Word insists on after a table come in just under A4. Asking for the
   artwork's own 99mm put two vouchers on a page and made a pad of 100 run to 34
   pages.
+- **Word hangs a table out to the left of the margin.** Left alone it lines the
+  first cell's *contents* up with the margin rather than the table's own edge,
+  which on a page with no margin put the left-hand column half a millimetre off
+  the paper and left 7.5mm spare down the right. The whole sheet printed
+  visibly skewed. The table indent is set explicitly to stop it.
 - **Word cannot pin a paragraph to the bottom of a cell.** The printed artwork
   pins the code panel to the foot of the voucher with a flex layout; here the
   gap above it is padded out instead, from a measurement of how tall the content
