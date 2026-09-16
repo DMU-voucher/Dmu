@@ -137,6 +137,10 @@ with nowhere to spend it.
 Adding or renaming a venue changes what a voucher looks like, so the example
 picture on the vendor sheet goes out of date and has to be remade. See below.
 
+The settled list is four: Saints of Mokha, the Devorer street vendor, Kim's
+Korean and Simply Fresh. Four is past the point where the artwork gives way,
+so every voucher now prints slightly tighter than the three-venue design did.
+
 **There is no QR code on a voucher.** The code is the same for all 500 of them,
 so printing it 500 times was waste and the vendor bookmarks the page after one
 scan anyway. It is printed once, at 45mm, on the vendor sheet. If
@@ -256,8 +260,9 @@ with it.** Both were raised and accepted, and both matter when reconciling:
 
 ### How big the code prints, and why it changes
 
-27pt at the settled three venues, stepping down a ladder to 22, 18 and 14pt.
-Two things push it down and the harder one wins:
+27pt up to three venues, stepping down a ladder to 22, 18 and 14pt. The
+settled list is four, so a voucher prints its code at 22pt today even before
+a run adds one of its own. Two things push it down and the harder one wins:
 
 - **A long code.** IDs and counts have no ceiling. `50000-8000` is ten
   characters and `123456789-123456789` is nineteen, and a code does not wrap,

@@ -6,7 +6,8 @@
   "venues": [
     "Saints of Mokha",
     "Devorer Street Vendor (outside Monty's)",
-    "Kim's Korean"
+    "Kim's Korean",
+    "Simply Fresh"
   ],
   "voucher_title": "Food & Drink Voucher",
   "_reference_label": "The heading above the code in the red box. The code itself is DMU's own: the ID from the approval export plus the ticket number, so request 12 for 40 vouchers prints 12-01 to 12-40.",

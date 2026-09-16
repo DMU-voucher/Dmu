@@ -645,8 +645,8 @@ class Voucher:
         """How hard the rest of the artwork gives way to fit the venue list.
 
         The venue list is the only thing on a voucher with no fixed length, and
-        the voucher is a fixed 99mm cell, so every venue past the settled three
-        has to be paid for. It is paid for in small steps across the value, the
+        the voucher is a fixed 99mm cell, so every venue past the third has to
+        be paid for. It is paid for in small steps across the value, the
         instruction line, the list itself and the code, rather than all at once
         out of the code, which is what a fourth vendor did in August: the code
         box hit its floor and printed through the small print above it.
