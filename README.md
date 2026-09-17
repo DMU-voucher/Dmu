@@ -379,22 +379,52 @@ result with Word and reading it back off the PDF:
   which on a page with no margin put the left-hand column half a millimetre off
   the paper and left 7.5mm spare down the right. The whole sheet printed
   visibly skewed. The table indent is set explicitly to stop it.
-- **There is a spare venue line, and it is drawn.** The pad is a Word file so it
-  can be edited, and adding a venue is one of the things people edit. Room on
-  its own was not enough: made invisible, nobody could find it, so the list ends
-  in an empty rule. It is a rule rather than a `[vendor]` placeholder because a
-  rule left unused prints as a blank somebody chose not to fill in, where a
-  placeholder prints the word "[vendor]" on the voucher as a place it can be
-  spent, on all 100 unless each is cleared. The rule is an underlined tab, so
-  typing on it shortens the tab and the line still ends in the same place. A
-  sixth venue wants putting in `config.json` instead, which rebuilds the pad
-  around it properly.
+- **The venue list ends in an empty bullet, and there is room for one line after
+  it.** The pad is a Word file so it can be edited, and adding a venue is one of
+  the things people edit. Room on its own was not enough: held back at the foot
+  and drawn nowhere, nobody could find it, and saying so beside the download
+  link only tells the person who downloads the pad, not whoever is handed the
+  file six months later. So the list ends in a bullet with nothing beside it,
+  which is a place to type rather than a blank to fill in, and it is on the
+  artwork where the person editing it is looking.
 
-  The line has to be counted in the spacer below, because it takes a venue's
-  height whether anything is on it or not. Before it was, the code panel sat
-  exactly on the bottom padding and an added line pushed it 2.6mm past the
-  floor: a row set to an exact height does not grow and does not complain, it
-  just stops drawing, so the panel went quietly missing until it reached paper.
+  It is a bullet rather than a `[vendor]` placeholder because a placeholder
+  prints the word "[vendor]" on the voucher as a place it can be spent, on all
+  100 unless each one is cleared. It is a bullet rather than the underlined rule
+  an earlier version drew because a rule reads as a line somebody meant to write
+  on. The cost of drawing it at all is that a pad nobody edits still prints a
+  bullet with nothing at it, a hundred times, and that is the trade.
+
+  **The gap after the dot belongs to the name's run, not the bullet's.** Typing
+  at the end of a paragraph in Word takes the formatting of the character to the
+  left of the cursor, and the first time this line was drawn that character was
+  the bullet's own 6pt orange, which is what a venue typed onto it came out as.
+  With the two spaces in the name's 8.5pt bold black instead, a typed venue
+  matches the printed ones and starts in the same place, 19.50pt from the cell
+  edge, measured by typing into it in Word and reading both back. Real venue
+  lines are drawn through the same helper so they cannot drift apart.
+
+  The line has to be counted in the spacer below, because it takes most of a
+  venue's height empty and all of it the moment anything is typed on it, and so
+  does the line of room held after it. Before they were, the code panel sat
+  exactly on the bottom padding
+  and an added line pushed it 2.6mm past the floor: a row set to an exact height
+  does not grow and does not complain, it just stops drawing, so the panel went
+  quietly missing until it reached paper.
+
+  Where the panel ends, measured by converting the pad with Word and reading it
+  off the PDF, against the 90mm floor:
+
+  | the voucher | panel ends | spare |
+  | --- | --- | --- |
+  | 4 venues, as built, blank line empty | 83.7mm | 6.3mm |
+  | 5 venues, one typed in | 84.9mm | 5.1mm |
+  | 6 venues, two typed in | 89.1mm | 0.9mm |
+  | 7 venues, three typed in | 93.2mm | **3.2mm past** |
+
+  So the blank line and one Enter after it, and a seventh venue belongs in
+  `config.json` instead, which rebuilds the pad around it and puts it on the
+  real vouchers too, which typing into Word does not.
 - **Word cannot pin a paragraph to the bottom of a cell.** The printed artwork
   pins the code panel to the foot of the voucher with a flex layout; here the
   gap above it is padded out instead, from a measurement of how tall the content

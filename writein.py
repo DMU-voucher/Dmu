@@ -96,8 +96,8 @@ CODE_MARK = "[code]"
 CONTENT_END_MM = 77.0
 CONTENT_PER_VENUE_MM = 4.2
 
-# Spare venue lines: height held back at the foot of the voucher, and nothing
-# drawn to show for it.
+# Spare venue lines. One is drawn as an empty bullet at the end of the list, and
+# one more is height held back at the foot with nothing to show for it.
 #
 # The pad is a Word file so that it can be edited, and adding a venue is one of
 # the things people edit. The list has to be able to grow, and the cell it grows
@@ -105,29 +105,45 @@ CONTENT_PER_VENUE_MM = 4.2
 # complain, it just stops drawing, so anything pushed past the floor goes
 # quietly missing until it reaches paper.
 #
-# Two attempts sit behind this one. Holding the room and drawing nothing was
-# invisible, and room nobody can find is worth nothing. Drawing an empty ruled
-# line was visible, and printed a bullet with a blank beside it on all 100
-# vouchers, which reads as a voucher somebody did not finish filling in.
+# Three attempts sit behind this one, and they were all the same argument about
+# whether the spare line is drawn. Holding the room and drawing nothing was
+# invisible, and room nobody can find is worth nothing. Drawing it as a bullet
+# with an underlined rule beside it was findable, but the rule reads as a line
+# somebody meant to write on, printed a hundred times. Saying it in words beside
+# the download link, which is where the last version left it, only tells the
+# person who downloads the pad; it tells nobody who is handed the file later.
 #
-# So: room again, but two lines of it, and the list ends on a real venue. Adding
-# one is now Enter at the end of the last line, which inherits that line's
-# bullet and its 8.5pt bold black rather than the 6pt orange a rule's own bullet
-# used to hand over. The room is said in words beside the download link instead
-# of drawn on the artwork, which is the only place it can be said without
-# printing it a hundred times.
+# So the bullet is drawn and the rule is not: an empty bullet is a place to type
+# rather than a blank to fill in, and it is on the artwork where the person
+# editing it is looking. What went wrong last time it was drawn is fixed in
+# _venue_line rather than argued about again: the gap after the dot belongs to
+# the name's run, so a venue typed onto the blank line comes out in 8.5pt bold
+# black like the ones above it instead of the bullet's own 6pt orange.
 #
-# The cost is at the other end, and it is real. The spacer is worked out when
-# the file is built and does not recompute when somebody types, so two lines
-# nobody can see shrink it to its 3pt floor: the code panel sits 13.3mm above
-# the cut rather than 6.7mm, over white. Each venue typed in spends 4.2mm of
-# that and walks the panel back down. Measured by converting with Word, not
-# worked out on paper: the panel is whole and inside the cell at four venues,
-# five and six, and a seventh is 3.2mm past the floor.
+# The cost is the bullet itself, on all 100 vouchers, whether anybody uses it or
+# not. That is the trade being made here and it is the user's call, not this
+# file's.
+#
+# Both lines are counted in the spacer below, the drawn one because it takes a
+# venue's height and the held one because the whole point is that it can. The
+# spacer is worked out when the file is built and does not recompute when
+# somebody types, so room held is room given up at the foot. Measured by
+# converting with Word and reading the panel off the PDF, against the 90mm
+# floor:
+#
+#   4 venues, blank line empty   panel ends 83.7mm,  6.3mm spare
+#   5, one typed in                         84.9mm,  5.1mm
+#   6, two typed in                         89.1mm,  0.9mm
+#   7, three typed in                       93.2mm,  3.2mm PAST
+#
+# The first venue typed in costs only 1.2mm because the blank line is drawn no
+# taller than its own 6pt dot until there are words on it; every one after that
+# costs a full 4.2mm and walks the panel further down.
 #
 # A seventh belongs in config.json, which rebuilds the pad around it and puts it
 # on the real vouchers too, which typing into Word does not.
-SPARE_VENUE_ROOM_LINES = 2
+SPARE_VENUE_LINES_DRAWN = 1
+SPARE_VENUE_ROOM_LINES = 1
 
 
 # --------------------------------------------------------------------------
@@ -232,6 +248,26 @@ def _placeholder(p, text: str, *, size: float, font=BODY_FONT):
     return _run(p, text, size=size, bold=True, color=INK_SOFT, font=font)
 
 
+def _venue_line(cell, name: str):
+    """One venue on its bullet, or an empty bullet to type one onto.
+
+    The two spaces after the dot belong to the name's run rather than the
+    bullet's, and that is the whole reason the blank line can be drawn at all.
+    Typing at the end of a paragraph in Word takes the formatting of the
+    character to the left of the cursor, so with the gap left in the bullet's
+    own 6pt orange a venue typed onto the blank came out 6pt orange. In the
+    name's 8.5pt bold black it comes out looking like the venues above it.
+
+    Real lines are drawn through here too, so every name starts in the same
+    place as the one that gets typed in.
+    """
+    line = _para(cell, space_after=0.5, line=1.0)
+    line.paragraph_format.left_indent = Mm(1)
+    _run(line, "●", size=6, color=FD_ORANGE)
+    _run(line, "  " + name, size=8.5, bold=True, color=INK)
+    return line
+
+
 # --------------------------------------------------------------------------
 # One voucher
 # --------------------------------------------------------------------------
@@ -258,10 +294,12 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
     _run(_para(cell, space_after=0.5), config.get("venue_intro") or "",
          size=7.5, bold=True, color=INK_SOFT)
     for name in venues:
-        line = _para(cell, space_after=0.5, line=1.0)
-        line.paragraph_format.left_indent = Mm(1)
-        _run(line, "●  ", size=6, color=FD_ORANGE)
-        _run(line, name, size=8.5, bold=True, color=INK)
+        _venue_line(cell, name)
+    # The line the next venue gets typed onto, left empty. Not a [vendor]
+    # placeholder: that would print the word "[vendor]" on all 100 vouchers as
+    # somewhere they can be spent, unless every one of them is cleared first.
+    for _ in range(SPARE_VENUE_LINES_DRAWN):
+        _venue_line(cell, "")
 
     _run(_para(cell, space_before=1.5, space_after=1),
          config.get("venue_warning") or "", size=7, bold=True, color=DMU_RED)
@@ -291,7 +329,7 @@ def _voucher(cell, config: dict, logo: Path | None) -> None:
     # small print and the bottom padding. Clamped at nothing to give away, which
     # is what a list longer than the artwork's own six-venue ceiling leaves.
     content_end = CONTENT_END_MM + CONTENT_PER_VENUE_MM * (
-        len(venues) - 3 + SPARE_VENUE_ROOM_LINES)
+        len(venues) - 3 + SPARE_VENUE_LINES_DRAWN + SPARE_VENUE_ROOM_LINES)
     room = (CELL_H.mm - CELL_PAD.mm) - content_end
     label = _para(cell, space_before=max(3.0, room * 72 / 25.4), space_after=0,
                   align=WD_ALIGN_PARAGRAPH.CENTER)
